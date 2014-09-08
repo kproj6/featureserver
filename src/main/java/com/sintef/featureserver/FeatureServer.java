@@ -1,11 +1,20 @@
 package com.sintef.featureserver;
 
+import com.sintef.featureserver.netcdf.NetCdfManager;
+import com.sintef.featureserver.providers.NetCdfManagerProvider;
 import org.cloudname.flags.Flag;
 import org.cloudname.flags.Flags;
 
 public class FeatureServer {
-    @Flag(name = "webserver-port")
+    @Flag(name = "webserver-port",
+          description = "whicb port to run the API server on")
     public static int webserverPort = 10100;
+
+    @Flag(name = "netcdf-file",
+          description = "Temporary flag. Which file are we using as data source",
+          required = true)
+    public static String netCdfFile;
+
 
     private WebServer webServer;
 
@@ -23,6 +32,8 @@ public class FeatureServer {
     }
 
     public void start() {
+        // Initialize providers
+        NetCdfManagerProvider.value = new NetCdfManager(netCdfFile);
         webServer = new WebServer(webserverPort);
         webServer.start();
     }
