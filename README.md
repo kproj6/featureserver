@@ -29,7 +29,8 @@ Launch flags:
 * `--webserver-port`: Which port do you want to listen on? Defaults to `10100`. Optional.
 
 To check that the server is running: `http://localhost:10100/health/shallow`
-
+Salinity resource example: `http://localhost:10100/feature/salinity?startx=0&endx=5&starty=0&endy=5
+&depth=2&time=2`
 
 Contributing
 ------------
