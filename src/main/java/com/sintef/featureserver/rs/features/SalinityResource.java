@@ -3,6 +3,7 @@ package com.sintef.featureserver.rs.features;
 import com.sintef.featureserver.netcdf.AreaBounds;
 import com.sintef.featureserver.netcdf.NetCdfManager;
 import com.sintef.featureserver.util.ImageRenderer;
+
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -12,6 +13,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.core.Response;
 import org.joda.time.DateTime;
 import ucar.ma2.InvalidRangeException;
@@ -35,18 +37,18 @@ public class SalinityResource {
     @GET
     @Produces("image/png")
     public Response salinityInRegionAtTime(
-            @QueryParam("startLat") final float startLat,
-            @QueryParam("startLon") final float startLon,
-            @QueryParam("endLat") final float endLat,
-            @QueryParam("endLon") final float endLon,
-            @QueryParam("depth") final float depth,
-            @QueryParam("time") final String time)throws IOException {
+            @NotNull @QueryParam("startLat") final float startLat,
+            @NotNull @QueryParam("startLon") final float startLon,
+            @NotNull @QueryParam("endLat") final float endLat,
+            @NotNull @QueryParam("endLon") final float endLon,
+            @NotNull @QueryParam("depth") final float depth,
+            @NotNull @QueryParam("time") final String time)throws IOException {
 
         final LatLonPoint upperLeft = new LatLonPointImpl(startLat, startLon);
         final LatLonPoint lowerRight = new LatLonPointImpl(endLat, endLon);
         final DateTime dt = DateTime.parse(time);
         final AreaBounds bounds = new AreaBounds(upperLeft, lowerRight, depth, dt);
-        final short[][] areaData;
+        final double[][] areaData;
         try {
             areaData = netCdfManager.readArea(bounds, "salinity");
         } catch (final IOException e) {

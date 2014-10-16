@@ -33,7 +33,8 @@ public class NetCdfManager {
      * @throws IOException
      * @throws InvalidRangeException
      */
-    public short[][] readArea(final AreaBounds boundingBox, final String variableName) throws IOException,
+    public double[][] readArea(final AreaBounds boundingBox, final String variableName) throws
+            IOException,
     InvalidRangeException {
 
         final String filename = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
@@ -65,12 +66,12 @@ public class NetCdfManager {
 
         // Create array to hold the data
         final int[] shape = areaData.getShape();
-        final short[][] result = new short[shape[0]][shape[1]];
+        final double[][] result = new double[shape[0]][shape[1]];
 
         final Index index = areaData.getIndex();
         for (int i=0; i<shape[0]; i++) {
             for (int j=0; j<shape[1]; j++) {
-                result[i][j] = areaData.getShort(index.set(i,j));
+                result[i][j] = areaData.getDouble(index.set(i,j));
             }
         }
         return result;
