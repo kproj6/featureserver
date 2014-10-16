@@ -1,134 +1,111 @@
 package com.sintef.featureserver.netcdf;
 
+import com.sintef.featureserver.FeatureServer;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
-import ucar.ma2.ArrayShort;
-import ucar.ma2.InvalidRangeException;
-import ucar.ma2.Range;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import ucar.ma2.Array;
-import ucar.nc2.NetcdfFile;
-import ucar.nc2.Variable;
+import ucar.ma2.Index;
+import ucar.ma2.InvalidRangeException;
+import ucar.nc2.dataset.CoordinateAxis1D;
+import ucar.nc2.dataset.CoordinateAxis1DTime;
+import ucar.nc2.dt.GridCoordSystem;
+import ucar.nc2.dt.GridDataset;
+import ucar.nc2.dt.GridDatatype;
+import ucar.unidata.geoloc.LatLonPoint;
+import ucar.unidata.geoloc.LatLonRect;
 
 /**
  * Manages netCdfFiles. Selects the appropriate file to read data from based on the bounds the
  * user specified, downsamples the data to a sane density and returns the result.
  * @TODO (Arve) Should probably handle the caching strategy as well.
- *
+ * @TODO(Arve) Add logging
  * @author Arve Nygård
  */
 public class NetCdfManager {
-    private static final int MAX_POINTS_X = 400;
-    private static final int MAX_POINTS_Y = 300;
     private static final Logger LOGGER = Logger.getLogger(NetCdfManager.class.getName());
-    private final String filePath;
 
-    public NetCdfManager(String filePath){ this.filePath = filePath; }
+    /**
+     * Gets the variable values at the given area and depth.
+     * @param boundingBox Area we are interested in.
+     * @param variableName Which variable we want data from
+     * @return 2D array of values.
+     * @throws IOException
+     * @throws InvalidRangeException
+     */
+    public short[][] readArea(final AreaBounds boundingBox, final String variableName) throws IOException,
+    InvalidRangeException {
 
-    public List<SalinityDataPoint> readData(final Bounds bounds) throws IOException, InvalidRangeException {
-        final String filename = getCorrectFilePath(bounds); // Hardcoded to launch flag for now.
-        NetcdfFile ncfile = null;
-        try {
-            ncfile = NetcdfFile.open(filename);
-            return getSalinityData(ncfile, bounds);
+        final String filename = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
 
-        } catch (IOException ioe) {
-            LOGGER.log(Level.SEVERE, "Could not open file: " + filename, ioe);
-            throw ioe;
-        } catch (InvalidRangeException e) {
-            final String message = "invalid bounds provided: " + bounds;
-            LOGGER.log(Level.SEVERE, message, e);
-            throw e;
+        // Open the dataset, find the variable and its coordinate system
+        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(filename);
+        final GridDatatype grid = gds.findGridDatatype(variableName);
+        final GridCoordSystem gcs = grid.getCoordinateSystem();
 
-        } finally {
-            if (null != ncfile) {
-                try {
-                    ncfile.close();
-                } catch (IOException ioe) {
-                    LOGGER.log(Level.SEVERE, "trying to close " + filename, ioe);
-                    return null;
-                }
-            }
-        }
-    }
+        // Crop the X and Y dimensions
+        // @TODO(Arve) calculate stride properly!
+        final GridDatatype gridSubset = grid.makeSubset(
+                null, // time range. Null to keep everything
+                null, // Z range. Null to keep everything
+                boundingBox.getRect(), // Rectangle we are interested in
+                1, // Z stride
+                1, // Y stride
+                1); // X stride
 
-    private List<SalinityDataPoint> getSalinityData(final NetcdfFile ncfile, final Bounds bounds)
-    throws InvalidRangeException, IOException {
-        // @TODO(Arve) The amount of dimensions and their orders are hardcoded for salinity,
-        // but this method should be generalized to handle variable and programmatically find
-        // dimension order from the file, in order to avoid copying all this logic for each
-        // variable type (salinity, wind, temp. etc...)
+        final CoordinateAxis1DTime timeAxis = gcs.getTimeAxis1D();
+        final int timeIndex = timeAxis.findTimeIndexFromDate(boundingBox.getTime().toDate());
 
-        final Variable salinity = ncfile.findVariable("salinity");
-        // Different variables have different dimension orders.
-        final int[] shape = salinity.getShape();
+        final CoordinateAxis1D depthAxis = gcs.getVerticalAxis();
+        final int depthIndex =  depthAxis.findCoordElementBounded(boundingBox.getDepth());
 
-        // Define the "origin" in the variable space (first element to fetch in each dimension)
+        // Gridsubset is now the volume we are interested in.
+        // -1 to get everything along X and Y dimension.
+        final Array areaData = gridSubset.readDataSlice(timeIndex, depthIndex, -1, -1);
 
-        // Salinity has dimensions {time, depth, y, x}
-        final int[] origin = new int[] {
-                0, // time. Hardcoded right now. Should use user value obviously.
-                bounds.getDepth(),
-                bounds.getStartY(),
-                bounds.getStartX()
-        };
+        // Create array to hold the data
+        final int[] shape = areaData.getShape();
+        final short[][] result = new short[shape[0]][shape[1]];
 
-        final List<Range> ranges = getRanges(bounds, shape);
-        ArrayShort.D2 data = (ArrayShort.D2) salinity.read(ranges).reduce();
-        final int[] reducedShape = data.getShape();
-        final List<SalinityDataPoint> result = new ArrayList<>();
-        for (int i=0; i<reducedShape[0]; i++) {
-            for (int j=0; j<reducedShape[1]; j++) {
-                result.add(new SalinityDataPoint(i,j, data.get(i,j)));
+        final Index index = areaData.getIndex();
+        for (int i=0; i<shape[0]; i++) {
+            for (int j=0; j<shape[1]; j++) {
+                result[i][j] = areaData.getShort(index.set(i,j));
             }
         }
         return result;
     }
 
     /**
-     * Gets the range based on a Bounds object (which was created based on the user's query
-     * parameters)
-     * Again, currently specialized for salinity, needs to be general.
-     * @param bounds
-     * @return list of ranges used to slice the data.
-     * @throws InvalidRangeException
+     * Reads the values along the z-axis at a given point for the a given variable.
+     * For example: Temperature profile at some location.
+     *
+     * @param location The point where the profile is to be sampled.
+     * @param variableName The type variable we are interested in.
      */
-    private List<Range> getRanges(final Bounds bounds, final int[] shape) throws
-            InvalidRangeException {
-        LOGGER.log(Level.INFO, "getting ranges for bounds" + bounds);
-        final ArrayList<Range> ranges = new ArrayList<>();
-
-        // Ranges in the form of Range(int startIndex, int endIndex)
-        ranges.add(new Range(bounds.getTime(), bounds.getTime())); // Time. Hardcoded to 0. Needs to
-        // use user value.
-        ranges.add(new Range(bounds.getDepth(), bounds.getDepth())); // Depth. Single slice
-        ranges.add(new Range(bounds.getStartX(), bounds.getEndX())); // y
-        ranges.add(new Range(bounds.getStartY(), bounds.getEndY())); // x
-        return ranges;
+    public short[] readDepthProfile(final LatLonPoint location, final String variableName){
+        throw new NotImplementedException();
     }
-
-
 
     /**
      * Calculates the stride (i.e. N in `get every N'th data point) used when fetching data,
      * to avoid returning too many datapoints for the requested region
      * @return int[strideX, strideY]
      */
-    private int[] calculateStride(final int[] varShape, final Bounds bounds){
+    private int[] calculateStride(final LatLonRect bounds){
         // Hardcoded to a stride of 1; meaning include every single data point in the region.
-        // Obviously this needs to be fixed :P
+        // @TODO(Arve) fixme
         return new int[] {1, 1};
     }
-
 
     /**
      * @return path to the file containing the relevant data matching the requested bounds.
      * Should consider scale when appropriate (i.e. a huge spatial region -> use a coarse data
      * source.
+     * @TODO(Arve) Currently returns a single file passed as launch parameter.
+     * This should talk to the index instead.
      */
-    private String getCorrectFilePath(final Bounds bounds){
-        return this.filePath;
+    private String getCorrectFilePath(final AreaBounds bounds){
+        return FeatureServer.netCdfFile;
     }
 }

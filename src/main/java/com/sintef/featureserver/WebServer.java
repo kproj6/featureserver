@@ -15,7 +15,7 @@ import org.eclipse.jetty.servlet.ServletHolder;
 
 public class WebServer {
     private static final Logger LOGGER = Logger.getLogger(WebServer.class.getName());
-    private static final String JERSEY_RESOURCES
+    private static final String JETTY_RESOURCES
             = "com.sintef.featureserver.rs;"
             + "com.sintef.featureserver.providers";
     private final int port;
@@ -38,17 +38,17 @@ public class WebServer {
         LOGGER.config("Using port " + port);
         server.setConnectors(new Connector[]{connector});
 
-        List<Handler> contextHandlers = new ArrayList<>();
+        final List<Handler> contextHandlers = new ArrayList<>();
 
         final ServletContextHandler idHandler
                 = new ServletContextHandler(ServletContextHandler.SESSIONS);
         final ServletHolder idServlet = new ServletHolder(ServletContainer.class);
         // Setting package path where Jersey looks for Providers and Resources
-        idServlet.setInitParameter("com.sun.jersey.config.property.packages", JERSEY_RESOURCES);
+        idServlet.setInitParameter("com.sun.jersey.config.property.packages", JETTY_RESOURCES);
         idHandler.addServlet(idServlet, "/*");
         contextHandlers.add(idHandler);
 
-        RequestLogHandler requestLogHandler = null;
+        final RequestLogHandler requestLogHandler = null;
 
         final ContextHandlerCollection contexts = new ContextHandlerCollection();
         contexts.setHandlers(contextHandlers.toArray(new Handler[1]));

@@ -1,66 +1,72 @@
 package com.sintef.featureserver.rs.features;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sintef.featureserver.netcdf.Bounds;
+import com.sintef.featureserver.netcdf.AreaBounds;
 import com.sintef.featureserver.netcdf.NetCdfManager;
-import com.sintef.featureserver.netcdf.SalinityDataPoint;
+import com.sintef.featureserver.util.ImageRenderer;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.List;
+import javax.imageio.ImageIO;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.joda.time.DateTime;
 import ucar.ma2.InvalidRangeException;
+import ucar.unidata.geoloc.LatLonPoint;
+import ucar.unidata.geoloc.LatLonPointImpl;
 
 /**
- * JAVADOCX
- *
- * @author arve
+ * Serves an image showing Salinity.
+ * test with http://localhost:10100/feature/salinity?startLat=65.24&startLon=7.56&endLat=65
+ * .42&endLon=9.542&depth=2&time=2013-08-05
  */
 @Path("feature")
 public class SalinityResource {
-    private NetCdfManager netCdfManager;
-    private ObjectMapper objectMapper;
+    private final NetCdfManager netCdfManager;
 
-    public SalinityResource(@Context NetCdfManager manager) {
+    public SalinityResource(@Context final NetCdfManager manager) {
         this.netCdfManager = manager;
-        this.objectMapper = new ObjectMapper();
     }
 
     @Path("salinity")
     @GET
-    @Produces(MediaType.APPLICATION_JSON)
+    @Produces("image/png")
     public Response salinityInRegionAtTime(
-            @QueryParam("time") final int time,
-            @QueryParam("depth") final int depth,
-            @QueryParam("startx") final int startX,
-            @QueryParam("endx") final int endX,
-            @QueryParam("starty") final int startY,
-            @QueryParam("endy") final int endY) throws JsonProcessingException {
+            @QueryParam("startLat") final float startLat,
+            @QueryParam("startLon") final float startLon,
+            @QueryParam("endLat") final float endLat,
+            @QueryParam("endLon") final float endLon,
+            @QueryParam("depth") final float depth,
+            @QueryParam("time") final String time)throws IOException {
 
-        final Bounds bounds = new Bounds(time, depth, startX, endX, startY, endY);
-        final List<SalinityDataPoint> data;
+        final LatLonPoint upperLeft = new LatLonPointImpl(startLat, startLon);
+        final LatLonPoint lowerRight = new LatLonPointImpl(endLat, endLon);
+        final DateTime dt = DateTime.parse(time);
+        final AreaBounds bounds = new AreaBounds(upperLeft, lowerRight, depth, dt);
+        final short[][] areaData;
         try {
-            data = netCdfManager.readData(bounds);
-        } catch (IOException e) {
-            // @TODO: Return json as body on these errors as well.
+            areaData = netCdfManager.readArea(bounds, "salinity");
+        } catch (final IOException e) {
+            // @TODO(Arve): Return json as body on these errors as well.
             return Response
                     .status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Could not read data file. " + e.getMessage())
                     .build();
-        } catch (InvalidRangeException e) {
+        } catch (final InvalidRangeException e) {
             return Response
                     .status(Response.Status.BAD_REQUEST)
                     .entity("Invalid ranges provided. " + e.getMessage())
                     .build();
         }
-        // @TODO(Arve) We need to turn the data into JSON :P
-        String result = objectMapper.writeValueAsString(data);
 
-        return Response.ok(result).build();
+        // @TODO(Arve) Image size
+        final BufferedImage image = ImageRenderer.render(areaData);
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", baos);
+        final byte[] imageData = baos.toByteArray();
+        return Response.ok(imageData).build();
     }
 }
