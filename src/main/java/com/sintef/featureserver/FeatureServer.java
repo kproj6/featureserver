@@ -16,9 +16,7 @@ public class FeatureServer {
     public static String netCdfFile;
 
 
-    private WebServer webServer;
-
-    public static void main(String[] args) throws Exception {
+    public static void main(final String[] args) throws Exception {
         Flags flags = new Flags()
                 .loadOpts(FeatureServer.class)
                 .parse(args);
@@ -33,8 +31,8 @@ public class FeatureServer {
 
     public void start() {
         // Initialize providers
-        NetCdfManagerProvider.value = new NetCdfManager(netCdfFile);
-        webServer = new WebServer(webserverPort);
+        NetCdfManagerProvider.value = new NetCdfManager();
+        final WebServer webServer = new WebServer(webserverPort);
         webServer.start();
     }
 
