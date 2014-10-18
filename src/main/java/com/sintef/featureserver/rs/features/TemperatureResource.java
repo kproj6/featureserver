@@ -1,8 +1,22 @@
+/**
+ * Filename: TemperatureResource.java
+ * Package: com.sintef.featureserver.rs.features
+ *
+ * Created: 17 Oct 2014
+ * 
+ * Author: Ondřej Hujňák
+ * Licence:
+ */
 package com.sintef.featureserver.rs.features;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sintef.featureserver.datatype.FloatParam;
+import com.sintef.featureserver.datatype.TimeParam;
 import com.sintef.featureserver.netcdf.AreaBounds;
 import com.sintef.featureserver.netcdf.NetCdfManager;
 import com.sintef.featureserver.util.ImageRenderer;
+import com.sintef.featureserver.util.JSONMsg;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -13,11 +27,11 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
-import javax.validation.constraints.NotNull;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-
-import org.joda.time.DateTime;
+import javax.ws.rs.core.Response.Status;
 
 import ucar.ma2.InvalidRangeException;
 import ucar.unidata.geoloc.LatLonPoint;
@@ -64,33 +78,79 @@ public class TemperatureResource {
     @GET
     @Path("image")
     @Produces("image/png")
-    public Response temperatureInRegionAtTime(
-            @NotNull @QueryParam("startLat") final float startLat,
-            @NotNull @QueryParam("startLon") final float startLon,
-            @NotNull @QueryParam("endLat") final float endLat,
-            @NotNull @QueryParam("endLon") final float endLon,
-            @NotNull @QueryParam("depth") final float depth,
-            @NotNull @QueryParam("time") final String time)throws IOException {
+    public Response temperatureInRegionAtTime (
+            @QueryParam("startLat") final FloatParam startLat,
+            @QueryParam("startLon") final FloatParam startLon,
+            @QueryParam("endLat") final FloatParam endLat,
+            @QueryParam("endLon") final FloatParam endLon,
+            @QueryParam("depth") final FloatParam depth,
+            @QueryParam("time") final TimeParam time) throws IOException {
+    	
+    	if (startLat == null || startLon == null ||
+    		endLat == null || endLon == null ||
+    		depth == null || time == null) {
+    		
+    		final ObjectMapper mapper = new ObjectMapper();
+			JSONMsg msg = new JSONMsg(
+					JSONMsg.Status.ERROR,
+					"Missing one or more parameters.");
+			try {
+				throw new WebApplicationException(
+						Response.status(Status.BAD_REQUEST)
+								.type(MediaType.APPLICATION_JSON)
+								.entity(mapper.writeValueAsString(msg))
+								.build()
+				);
+			} catch (JsonProcessingException e) {
+				throw new WebApplicationException(
+						Response.status(Status.INTERNAL_SERVER_ERROR)
+								.build()
+				);
+			}
+    	}
 
-        final LatLonPoint topLeft = new LatLonPointImpl(startLat, startLon);
-        final LatLonPoint bottomRight = new LatLonPointImpl(endLat, endLon);
-        final DateTime dt = DateTime.parse(time);
-        final AreaBounds bounds = new AreaBounds(topLeft, bottomRight, depth, dt);
+        final LatLonPoint topLeft =
+        		new LatLonPointImpl(startLat.val(), startLon.val());
+        final LatLonPoint bottomRight = 
+        		new LatLonPointImpl(endLat.val(), endLon.val());
+        final AreaBounds bounds = 
+        		new AreaBounds(topLeft, bottomRight, depth.val(), time.val());
         final double[][] areaData;
         
         try {
             areaData = netCdfManager.readArea(bounds, "temperature");
-        } catch (final IOException e) {
-            // @TODO(Arve): Return json as body on these errors as well.
-            return Response
-                    .status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Could not read data file. " + e.getMessage())
-                    .build();
-        } catch (final InvalidRangeException e) {
-            return Response
-                    .status(Response.Status.BAD_REQUEST)
-                    .entity("Invalid ranges provided. " + e.getMessage())
-                    .build();
+        } catch (final IOException e1) {
+        	final ObjectMapper mapper = new ObjectMapper();
+			JSONMsg msg = new JSONMsg(
+					JSONMsg.Status.ERROR,
+					"Could not read data file. " + e1.getMessage());
+			try {
+	            return Response
+	                    .status(Response.Status.INTERNAL_SERVER_ERROR)
+	                    .type(MediaType.APPLICATION_JSON)
+	                    .entity(mapper.writeValueAsString(msg))
+	                    .build();
+			} catch (JsonProcessingException e2) {
+				return Response
+						.status(Response.Status.INTERNAL_SERVER_ERROR)
+						.build();
+			}
+        } catch (final InvalidRangeException e1) {
+        	final ObjectMapper mapper = new ObjectMapper();
+			JSONMsg msg = new JSONMsg(
+					JSONMsg.Status.ERROR,
+					"Invalid ranges provided. " + e1.getMessage());
+			try {
+	            return Response
+	                    .status(Response.Status.INTERNAL_SERVER_ERROR)
+	                    .type(MediaType.APPLICATION_JSON)
+	                    .entity(mapper.writeValueAsString(msg))
+	                    .build();
+			} catch (JsonProcessingException e2) {
+				return Response
+						.status(Response.Status.INTERNAL_SERVER_ERROR)
+						.build();
+			}
         }
 
         // @TODO(Arve) Image size
