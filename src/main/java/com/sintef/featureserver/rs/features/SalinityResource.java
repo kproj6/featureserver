@@ -2,6 +2,7 @@ package com.sintef.featureserver.rs.features;
 
 import com.sintef.featureserver.netcdf.AreaBounds;
 import com.sintef.featureserver.netcdf.NetCdfManager;
+import com.sintef.featureserver.netcdf.Variable;
 import com.sintef.featureserver.util.ImageRenderer;
 
 import java.awt.image.BufferedImage;
@@ -64,8 +65,7 @@ public class SalinityResource {
                     .build();
         }
 
-        // @TODO(Arve) Image size
-        final BufferedImage image = ImageRenderer.render(areaData);
+        final BufferedImage image = ImageRenderer.render(areaData, true);
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(image, "png", baos);
         final byte[] imageData = baos.toByteArray();

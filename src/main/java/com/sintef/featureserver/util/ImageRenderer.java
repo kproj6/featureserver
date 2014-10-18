@@ -6,56 +6,68 @@ public class ImageRenderer {
 
     public ImageRenderer(){} // Should not be instantiated.
 
-    //private static final short minValue = -32768;
-    //private static final short maxValue = 32767;
+    //The height or width of the resulting image (whichever dimension is the smallest) will be this big
+    final static int goalSize = 256;
 
-    //the recommended min and max values suggested by Finn Olav for salinity
-    //private static final short minValue = (short)((26 - 50) / 0.0015259255f);
-    //private static final short maxValue = (short)((30 - 50) / 0.0015259255f);
+    public static BufferedImage render(final double[][] rawData, boolean forceSquare) {
 
-
-    public static BufferedImage render(final double[][] rawData) {
-
-
-        final int width = rawData[0].length;
-        final int height = rawData.length;
-        final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        final int dataWidth = rawData[0].length;
+        final int dataHeight = rawData.length;
 
         double minValue = 32767;
         double maxValue = -32768;
 
 
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
+        for (int y = 0; y < dataHeight; y++) {
+            for (int x = 0; x < dataWidth; x++) {
                 double value = rawData[y][x];
 
-                if(value != 0) {
+                if (value != 0) {
                     if (value > maxValue)
                         maxValue = value;
 
-                    if(value < minValue)
+                    if (value < minValue)
                         minValue = value;
                 }
             }
         }
 
-        System.out.println(minValue);
-        System.out.println(maxValue);
 
+        double aspectRatio = (double)dataWidth/dataHeight;
+        int imageWidth, imageHeight;
+        if(aspectRatio == 1.0 || forceSquare){
+            imageWidth = goalSize;
+            imageHeight = goalSize;
+        }else if (aspectRatio < 1.0){
+            imageWidth = goalSize;
+            imageHeight = (int)(goalSize * aspectRatio);
+        }else{
+            imageWidth = (int)(goalSize * aspectRatio);
+            imageHeight = goalSize;
+        }
 
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                double value = rawData[y][x];
+        double xScale = (double)imageWidth/dataWidth;
+        double yScale = (double)imageHeight/dataHeight;
 
-                if (value == 0) {
-                    image.setRGB(x, y, 0x00ff00);        // coloring all landspots green
+        final BufferedImage image = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_ARGB);
+
+        for (int y = 0; y < imageHeight; y++) {
+            for (int x = 0; x < imageWidth; x++) {
+                int dataX = (int)((imageHeight-1 - y)/yScale);
+                int dataY = (int)(x/xScale);
+                double value = rawData[dataX][dataY];
+
+                if (Double.isNaN(value)) {
+                    //image.setRGB(x, y, 0xff00ff00);       // coloring all landspots to green
+                    image.setRGB(x, y, 0x00000000);         // coloring all landspots to transparent
                 } else {
-                    short r = (short) (256.0 * normalize(minValue, maxValue, value));
-                    short g = (short) (256.0 * normalize(minValue, maxValue, value));
-                    short b = (short) (256.0 * normalize(minValue, maxValue, value));
+                    short a = 255;
+                    short r = (short) (255.0 * normalize(minValue, maxValue, value));
+                    short g = (short) (255.0 * normalize(minValue, maxValue, value));
+                    short b = (short) (255.0 * normalize(minValue, maxValue, value));
 
-                    int rgb = (int) (r << 16 | g << 8 | b);
-                    image.setRGB(x, y, rgb);
+                    int argb = (int) ((a << 24) | (r << 16) | (g << 8) | (b));
+                    image.setRGB(x, y, argb);
                 }
             }
         }
