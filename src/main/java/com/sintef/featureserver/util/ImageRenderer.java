@@ -1,5 +1,8 @@
 package com.sintef.featureserver.util;
 
+import com.sintef.featureserver.netcdf.Feature;
+
+import java.awt.*;
 import java.awt.image.BufferedImage;
 
 public class ImageRenderer {
@@ -9,29 +12,44 @@ public class ImageRenderer {
     //The height or width of the resulting image (whichever dimension is the smallest) will be this big
     final static int goalSize = 256;
 
-    public static BufferedImage render(final double[][] rawData, boolean forceSquare) {
+    public static BufferedImage render(final double[][] rawData, Feature feature, boolean forceSquare) {
 
         final int dataWidth = rawData[0].length;
         final int dataHeight = rawData.length;
 
         double minValue = 32767;
         double maxValue = -32768;
+        Color minColor = new Color(0xffffff);
+        Color maxColor = new Color(0x000000);
 
-
-        for (int y = 0; y < dataHeight; y++) {
-            for (int x = 0; x < dataWidth; x++) {
-                double value = rawData[y][x];
-
-                if (value != 0) {
-                    if (value > maxValue)
-                        maxValue = value;
-
-                    if (value < minValue)
-                        minValue = value;
-                }
-            }
+        switch (feature){
+            case SALINITY:
+                minValue = 26;
+                maxValue = 36;
+                minColor = new Color(0xffffff);
+                maxColor = new Color(0x0048ff);
+                break;
+            case TEMPERATURE:
+                minValue = 0;
+                maxValue = 20;
+                minColor = new Color(0x0048ff);
+                maxColor = new Color(0xff2321);
+                break;
+            case CURRENT_MAGNITUDE:
+                minValue = 0;
+                maxValue = 1000;
+                minColor = new Color(0x0048ff);
+                maxColor = new Color(0xff2321);
+                break;
+            case CURRENT_DIRECTION:
+                break;
+            case DEPTH:
+                minValue = 0;
+                maxValue = 1000;
+                minColor = new Color(0xffffff);
+                maxColor = new Color(0x0048ff);
+                break;
         }
-
 
         double aspectRatio = (double)dataWidth/dataHeight;
         int imageWidth, imageHeight;
@@ -58,23 +76,25 @@ public class ImageRenderer {
                 double value = rawData[dataX][dataY];
 
                 if (Double.isNaN(value)) {
-                    //image.setRGB(x, y, 0xff00ff00);       // coloring all landspots to green
                     image.setRGB(x, y, 0x00000000);         // coloring all landspots to transparent
                 } else {
-                    short a = 255;
-                    short r = (short) (255.0 * normalize(minValue, maxValue, value));
-                    short g = (short) (255.0 * normalize(minValue, maxValue, value));
-                    short b = (short) (255.0 * normalize(minValue, maxValue, value));
 
-                    int argb = (int) ((a << 24) | (r << 16) | (g << 8) | (b));
-                    image.setRGB(x, y, argb);
+                    double fraction = normalize(minValue, maxValue, value);
+                    int r = lerp(minColor.getRed(),   maxColor.getRed(),   fraction);
+                    int g = lerp(minColor.getGreen(), maxColor.getGreen(), fraction);
+                    int b = lerp(minColor.getBlue(),  maxColor.getBlue(),  fraction);
+                    int a = lerp(minColor.getAlpha(), maxColor.getAlpha(), fraction);
+
+                    Color color = new Color(r,g,b,a);
+                    image.setRGB(x, y, color.getRGB());
                 }
             }
         }
         return image;
     }
 
-    // returns 0 if value is min, 1 if value is max
+    // returns 0.0 if value is min, 1.0 if value is max.
+    // interpolates and extrapolates for other values
     private static double normalize(final double min, final double max, final double value) {
         final double divisor = max - min;
         if (divisor <= 0.0) {
@@ -83,4 +103,18 @@ public class ImageRenderer {
         }
         return (value - min) / divisor;
     }
+
+    // fraction gets clamped to [0, 1]
+    private static int lerp(int i1, int i2, double fraction){
+        if(fraction > 1.0) {
+            fraction = 1.0;
+        } else if(fraction < 0.0) {
+            fraction = 0.0;
+        }
+
+        return (int)((1.0-fraction)*i1 + fraction*i2 + 0.5);
+    }
 }
+
+
+
