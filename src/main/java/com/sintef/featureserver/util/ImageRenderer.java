@@ -1,68 +1,100 @@
 package com.sintef.featureserver.util;
 
+import com.sintef.featureserver.netcdf.Feature;
+
+import java.awt.*;
 import java.awt.image.BufferedImage;
 
 public class ImageRenderer {
 
     public ImageRenderer(){} // Should not be instantiated.
 
-    //private static final short minValue = -32768;
-    //private static final short maxValue = 32767;
+    //The height or width of the resulting image (whichever dimension is the smallest) will be this big
+    final static int goalSize = 256;
 
-    //the recommended min and max values suggested by Finn Olav for salinity
-    //private static final short minValue = (short)((26 - 50) / 0.0015259255f);
-    //private static final short maxValue = (short)((30 - 50) / 0.0015259255f);
+    public static BufferedImage render(final double[][] rawData, Feature feature, boolean forceSquare) {
 
-
-    public static BufferedImage render(final double[][] rawData) {
-
-
-        final int width = rawData[0].length;
-        final int height = rawData.length;
-        final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        final int dataWidth = rawData[0].length;
+        final int dataHeight = rawData.length;
 
         double minValue = 32767;
         double maxValue = -32768;
+        Color minColor = new Color(0xffffff);
+        Color maxColor = new Color(0x000000);
 
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                double value = rawData[y][x];
-
-                if(value != 0) {
-                    if (value > maxValue)
-                        maxValue = value;
-
-                    if(value < minValue)
-                        minValue = value;
-                }
-            }
+        switch (feature){
+            case SALINITY:
+                minValue = 26;
+                maxValue = 36;
+                minColor = new Color(0xffffff);
+                maxColor = new Color(0x0048ff);
+                break;
+            case TEMPERATURE:
+                minValue = 0;
+                maxValue = 20;
+                minColor = new Color(0x0048ff);
+                maxColor = new Color(0xff2321);
+                break;
+            case CURRENT_MAGNITUDE:
+                minValue = 0;
+                maxValue = 1000;
+                minColor = new Color(0x0048ff);
+                maxColor = new Color(0xff2321);
+                break;
+            case CURRENT_DIRECTION:
+                break;
+            case DEPTH:
+                minValue = 0;
+                maxValue = 1000;
+                minColor = new Color(0xffffff);
+                maxColor = new Color(0x0048ff);
+                break;
         }
 
-        System.out.println(minValue);
-        System.out.println(maxValue);
+        double aspectRatio = (double)dataWidth/dataHeight;
+        int imageWidth, imageHeight;
+        if(aspectRatio == 1.0 || forceSquare){
+            imageWidth = goalSize;
+            imageHeight = goalSize;
+        }else if (aspectRatio < 1.0){
+            imageWidth = goalSize;
+            imageHeight = (int)(goalSize * aspectRatio);
+        }else{
+            imageWidth = (int)(goalSize * aspectRatio);
+            imageHeight = goalSize;
+        }
 
+        double xScale = (double)imageWidth/dataWidth;
+        double yScale = (double)imageHeight/dataHeight;
 
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                double value = rawData[y][x];
+        final BufferedImage image = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_ARGB);
 
-                if (value == 0) {
-                    image.setRGB(x, y, 0x00ff00);        // coloring all landspots green
+        for (int y = 0; y < imageHeight; y++) {
+            for (int x = 0; x < imageWidth; x++) {
+                int dataX = (int)((imageHeight-1 - y)/yScale);
+                int dataY = (int)(x/xScale);
+                double value = rawData[dataX][dataY];
+
+                if (Double.isNaN(value)) {
+                    image.setRGB(x, y, 0x00000000);         // coloring all landspots to transparent
                 } else {
-                    short r = (short) (256.0 * normalize(minValue, maxValue, value));
-                    short g = (short) (256.0 * normalize(minValue, maxValue, value));
-                    short b = (short) (256.0 * normalize(minValue, maxValue, value));
 
-                    int rgb = (int) (r << 16 | g << 8 | b);
-                    image.setRGB(x, y, rgb);
+                    double fraction = normalize(minValue, maxValue, value);
+                    int r = lerp(minColor.getRed(),   maxColor.getRed(),   fraction);
+                    int g = lerp(minColor.getGreen(), maxColor.getGreen(), fraction);
+                    int b = lerp(minColor.getBlue(),  maxColor.getBlue(),  fraction);
+                    int a = lerp(minColor.getAlpha(), maxColor.getAlpha(), fraction);
+
+                    Color color = new Color(r,g,b,a);
+                    image.setRGB(x, y, color.getRGB());
                 }
             }
         }
         return image;
     }
 
-    // returns 0 if value is min, 1 if value is max
+    // returns 0.0 if value is min, 1.0 if value is max.
+    // interpolates and extrapolates for other values
     private static double normalize(final double min, final double max, final double value) {
         final double divisor = max - min;
         if (divisor <= 0.0) {
@@ -71,4 +103,18 @@ public class ImageRenderer {
         }
         return (value - min) / divisor;
     }
+
+    // fraction gets clamped to [0, 1]
+    private static int lerp(int i1, int i2, double fraction){
+        if(fraction > 1.0) {
+            fraction = 1.0;
+        } else if(fraction < 0.0) {
+            fraction = 0.0;
+        }
+
+        return (int)((1.0-fraction)*i1 + fraction*i2 + 0.5);
+    }
 }
+
+
+
