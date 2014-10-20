@@ -11,12 +11,13 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
-import javax.validation.constraints.NotNull;
+import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 import org.joda.time.DateTime;
+import org.json.JSONArray;
+import org.json.JSONStringer;
 import ucar.ma2.InvalidRangeException;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonPointImpl;
@@ -34,20 +35,33 @@ public class SalinityResource {
         this.netCdfManager = manager;
     }
 
+    /**
+     *
+     * @param startLat Latitude of top left corner
+     * @param startLon Longditude of top left coner
+     * @param endLat Latidtude of bottom right corner
+     * @param endLon Longditude of bottom right corner
+     * @param depth Depth
+     * @param time datetime
+     * @return Image showing the salinity data in the region specified
+     * @throws IOException
+     * @throws java.lang.IllegalArgumentException if any parameters are missing or invalid. This
+     * results in a 400 bad request response.
+     */
     @Path("salinity")
     @GET
-    @Produces("image/png")
     public Response salinityInRegionAtTime(
-            @NotNull @QueryParam("startLat") final float startLat,
-            @NotNull @QueryParam("startLon") final float startLon,
-            @NotNull @QueryParam("endLat") final float endLat,
-            @NotNull @QueryParam("endLon") final float endLon,
-            @NotNull @QueryParam("depth") final float depth,
-            @NotNull @QueryParam("time") final String time)throws IOException {
+            @QueryParam("startLat") final Float startLat,
+            @QueryParam("startLon") final Float startLon,
+            @QueryParam("endLat") final Float endLat,
+            @QueryParam("endLon") final Float endLon,
+            @QueryParam("depth") final Float depth,
+            @QueryParam("time") final String time)throws IOException {
 
+        validateQueryParams(startLat, startLon, endLat, endLon, depth, time);
+        final DateTime dt = DateTime.parse(time);
         final LatLonPoint upperLeft = new LatLonPointImpl(startLat, startLon);
         final LatLonPoint lowerRight = new LatLonPointImpl(endLat, endLon);
-        final DateTime dt = DateTime.parse(time);
         final AreaBounds bounds = new AreaBounds(upperLeft, lowerRight, depth, dt);
         final double[][] areaData;
         try {
@@ -69,6 +83,37 @@ public class SalinityResource {
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(image, "png", baos);
         final byte[] imageData = baos.toByteArray();
-        return Response.ok(imageData).build();
+        return Response.ok(imageData).type("image/png").build();
+    }
+
+    /**
+     * Validates that required query parameters are set. Shows error listing all missing fields if
+     * something is missing.
+     * @throws IllegalArgumentException if any parameter is missing.
+     */
+    private void validateQueryParams(
+            final Float startLat,
+            final Float startLon,
+            final Float endLat,
+            final Float endLon,
+            final Float depth,
+            final String time) {
+        final JSONArray missingFields = new JSONArray();
+        if(startLat == null) { missingFields.put("startLat"); }
+        if(startLon == null) { missingFields.put("startLon"); }
+        if(endLat == null) { missingFields.put("endLat"); }
+        if(endLon == null) { missingFields.put("endLon"); }
+        if(depth == null) { missingFields.put("depth"); }
+        if(time == null) { missingFields.put("time"); }
+
+
+        if( missingFields.length() != 0) {
+            final String errorMessage = new JSONStringer()
+                    .object()
+                    .key("missingFields").value(missingFields)
+                    .endObject()
+                    .toString();
+            throw new IllegalArgumentException(errorMessage);
+        }
     }
 }
