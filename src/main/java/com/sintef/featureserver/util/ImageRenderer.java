@@ -37,7 +37,7 @@ public class ImageRenderer {
                 break;
             case CURRENT_MAGNITUDE:
                 minValue = 0;
-                maxValue = 1000;
+                maxValue = 1;
                 minColor = new Color(0x0048ff);
                 maxColor = new Color(0xff2321);
                 break;
@@ -51,41 +51,42 @@ public class ImageRenderer {
                 break;
         }
 
-        double aspectRatio = (double)dataWidth/dataHeight;
-        int imageWidth, imageHeight;
-        if(aspectRatio == 1.0 || forceSquare){
+        final double aspectRatio = (double)dataWidth/dataHeight;
+        final int imageWidth;
+        final int imageHeight;
+        if (aspectRatio == 1.0 || forceSquare) {
             imageWidth = goalSize;
             imageHeight = goalSize;
-        }else if (aspectRatio < 1.0){
+        } else if (aspectRatio < 1.0) {
             imageWidth = goalSize;
             imageHeight = (int)(goalSize * aspectRatio);
-        }else{
+        } else {
             imageWidth = (int)(goalSize * aspectRatio);
             imageHeight = goalSize;
         }
 
-        double xScale = (double)imageWidth/dataWidth;
-        double yScale = (double)imageHeight/dataHeight;
+        final double xScale = (double)imageWidth / dataWidth;
+        final double yScale = (double)imageHeight / dataHeight;
 
         final BufferedImage image = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_ARGB);
 
         for (int y = 0; y < imageHeight; y++) {
             for (int x = 0; x < imageWidth; x++) {
-                int dataX = (int)((imageHeight-1 - y)/yScale);
-                int dataY = (int)(x/xScale);
-                double value = rawData[dataX][dataY];
+                final int dataX = (int)((imageHeight-1 - y)/yScale);
+                final int dataY = (int)(x/xScale);
+                final double value = rawData[dataX][dataY];
 
                 if (Double.isNaN(value)) {
                     image.setRGB(x, y, 0x00000000);         // coloring all landspots to transparent
                 } else {
 
-                    double fraction = normalize(minValue, maxValue, value);
-                    int r = lerp(minColor.getRed(),   maxColor.getRed(),   fraction);
-                    int g = lerp(minColor.getGreen(), maxColor.getGreen(), fraction);
-                    int b = lerp(minColor.getBlue(),  maxColor.getBlue(),  fraction);
-                    int a = lerp(minColor.getAlpha(), maxColor.getAlpha(), fraction);
+                    final double fraction = normalize(minValue, maxValue, value);
+                    final int r = lerp(minColor.getRed(),   maxColor.getRed(),   fraction);
+                    final int g = lerp(minColor.getGreen(), maxColor.getGreen(), fraction);
+                    final int b = lerp(minColor.getBlue(),  maxColor.getBlue(),  fraction);
+                    final int a = lerp(minColor.getAlpha(), maxColor.getAlpha(), fraction);
 
-                    Color color = new Color(r,g,b,a);
+                    final Color color = new Color(r,g,b,a);
                     image.setRGB(x, y, color.getRGB());
                 }
             }
@@ -105,14 +106,14 @@ public class ImageRenderer {
     }
 
     // fraction gets clamped to [0, 1]
-    private static int lerp(int i1, int i2, double fraction){
-        if(fraction > 1.0) {
+    private static int lerp(final int i1, final int i2, double fraction){
+        if (fraction > 1.0) {
             fraction = 1.0;
-        } else if(fraction < 0.0) {
+        } else if (fraction < 0.0) {
             fraction = 0.0;
         }
 
-        return (int)((1.0-fraction)*i1 + fraction*i2 + 0.5);
+        return (int)((1.0 - fraction)*i1 + fraction*i2 + 0.5);
     }
 }
 
