@@ -1,10 +1,11 @@
 package com.sintef.featureserver.rs.features;
 
+import com.sintef.featureserver.exception.BadRequestException;
+import com.sintef.featureserver.exception.InternalServerException;
 import com.sintef.featureserver.netcdf.AreaBounds;
 import com.sintef.featureserver.netcdf.Feature;
 import com.sintef.featureserver.netcdf.NetCdfManager;
 import com.sintef.featureserver.util.ImageRenderer;
-
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -13,11 +14,10 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 import org.joda.time.DateTime;
 import org.json.JSONArray;
-import org.json.JSONStringer;
+import org.json.JSONObject;
 import ucar.ma2.InvalidRangeException;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonPointImpl;
@@ -59,7 +59,14 @@ public class SalinityResource {
             @QueryParam("time") final String time)throws IOException {
 
         validateQueryParams(startLat, startLon, endLat, endLon, depth, time);
-        final DateTime dt = DateTime.parse(time);
+
+        final DateTime dt;
+        try {
+            dt = DateTime.parse(time);
+        } catch (final IllegalArgumentException e) {
+            throw new BadRequestException("Time format not recognized", e);
+        }
+
         final LatLonPoint upperLeft = new LatLonPointImpl(startLat, startLon);
         final LatLonPoint lowerRight = new LatLonPointImpl(endLat, endLon);
         final AreaBounds bounds = new AreaBounds(upperLeft, lowerRight, depth, dt);
@@ -67,18 +74,10 @@ public class SalinityResource {
         try {
             areaData = netCdfManager.readArea(bounds, "salinity");
         } catch (final IOException e) {
-            // @TODO(Arve): Return json as body on these errors as well.
-            return Response
-                    .status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Could not read data file. " + e.getMessage())
-                    .build();
+            throw new InternalServerException("Could not read data file.", e);
         } catch (final InvalidRangeException e) {
-            return Response
-                    .status(Response.Status.BAD_REQUEST)
-                    .entity("Invalid ranges provided. " + e.getMessage())
-                    .build();
+            throw new BadRequestException("Invalid ranges provided.", e);
         }
-
 
         final BufferedImage image = ImageRenderer.render(areaData, Feature.SALINITY, true);
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -107,14 +106,9 @@ public class SalinityResource {
         if(depth == null) { missingFields.put("depth"); }
         if(time == null) { missingFields.put("time"); }
 
-
         if( missingFields.length() != 0) {
-            final String errorMessage = new JSONStringer()
-                    .object()
-                    .key("missingFields").value(missingFields)
-                    .endObject()
-                    .toString();
-            throw new IllegalArgumentException(errorMessage);
+            final JSONObject errorObject = new JSONObject().put( "missingFields", missingFields);
+            throw new BadRequestException("Missing query parameters in url.", errorObject);
         }
     }
 }
