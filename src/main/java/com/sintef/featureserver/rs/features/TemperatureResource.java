@@ -9,10 +9,14 @@
  */
 package com.sintef.featureserver.rs.features;
 
+import com.sintef.featureserver.exception.BadRequestException;
+import com.sintef.featureserver.exception.InternalServerException;
 import com.sintef.featureserver.netcdf.AreaBounds;
 import com.sintef.featureserver.netcdf.Feature;
 import com.sintef.featureserver.netcdf.NetCdfManager;
 import com.sintef.featureserver.util.ImageRenderer;
+import com.sintef.featureserver.util.RsUtil;
+
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -22,13 +26,9 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.joda.time.DateTime;
-import org.json.JSONArray;
-import org.json.JSONStringer;
-
 import ucar.ma2.InvalidRangeException;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonPointImpl;
@@ -38,7 +38,7 @@ import ucar.unidata.geoloc.LatLonPointImpl;
  * 
  * This class contains processing of all /feature/temperature requests.
  */
-@Path("temperature")
+@Path("feature/temperature")
 public class TemperatureResource {
 	
 	/**
@@ -82,7 +82,7 @@ public class TemperatureResource {
             @QueryParam("depth") final Float depth,
             @QueryParam("time") final String time) throws IOException {
     	
-    	validateQueryParams(startLat, startLon, endLat, endLon, depth, time);
+    	RsUtil.validateAreaQueryParams(startLat, startLon, endLat, endLon, depth, time);
     	
     	final DateTime dt = DateTime.parse(time);
         final LatLonPoint topLeft =
@@ -96,29 +96,9 @@ public class TemperatureResource {
         try {
             areaData = netCdfManager.readArea(bounds, "temperature");
         } catch (final IOException e) {
-        	final String errorMessage = new JSONStringer()
-        			.object()
-        			.key("status").value("Internal Server Error")
-        			.key("message").value("Could not read data file. " + e.getMessage())
-					.endObject()
-		            .toString();
-        	return Response
-                    .status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .type(MediaType.APPLICATION_JSON)
-                    .entity(errorMessage)
-                    .build();
+        	throw new InternalServerException("Could not read data file.", e);
         } catch (final InvalidRangeException e) {
-        	final String errorMessage = new JSONStringer()
-			.object()
-			.key("status").value("Bad Request")
-			.key("message").value("Invalid ranges provided. " + e.getMessage())
-			.endObject()
-            .toString();
-			return Response
-		            .status(Response.Status.BAD_REQUEST)
-		            .type(MediaType.APPLICATION_JSON)
-		            .entity(errorMessage)
-		            .build();
+        	throw new BadRequestException("Invalid ranges provided.", e);
         }
 
         // @TODO(Arve) Image size
@@ -129,40 +109,4 @@ public class TemperatureResource {
         return Response.ok(imageData).type("image/png").build();
     }
 
-	/**
-	 * @param startLat
-	 * @param startLon
-	 * @param endLat
-	 * @param endLon
-	 * @param depth
-	 * @param time
-	 */
-	private void validateQueryParams(
-			final Float startLat, 
-			final Float startLon,
-			final Float endLat,
-			final Float endLon,
-			final Float depth,
-			final String time) {
-		
-		boolean dirty = false;
-		final JSONArray missingFields = new JSONArray();
-		
-		if(startLat == null) { dirty = true; missingFields.put("startLat"); }
-		if(startLon == null) { dirty = true; missingFields.put("startLon"); }
-		if(endLat == null) { dirty = true; missingFields.put("endLat"); }
-		if(endLon == null) { dirty = true; missingFields.put("endLon"); }
-		if(depth == null) { dirty = true; missingFields.put("depth"); }
-		if(time == null) { dirty = true; missingFields.put("time"); }
-		
-		if (dirty) {
-			final String errorMessage = new JSONStringer()
-		            .object()
-		            .key("missingFields").value(missingFields)
-		            .endObject()
-		            .toString();
-			throw new IllegalArgumentException(errorMessage);
-		}
-		
-	}
 }
