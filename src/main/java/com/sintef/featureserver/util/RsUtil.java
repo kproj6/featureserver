@@ -28,17 +28,25 @@ public class RsUtil {
             final Float endLon,
             final Float depth,
             final String time) {
-        final JSONArray missingFields = new JSONArray();
-        if(startLat == null) { missingFields.put("startLat"); }
-        if(startLon == null) { missingFields.put("startLon"); }
-        if(endLat == null) { missingFields.put("endLat"); }
-        if(endLon == null) { missingFields.put("endLon"); }
-        if(depth == null) { missingFields.put("depth"); }
-        if(time == null) { missingFields.put("time"); }
-
-        if( missingFields.length() != 0) {
+        
+        checkPresenceOfQP(
+        		"startLat", startLat,
+    			"startLon", startLon,
+    			"endLat", endLat,
+    			"endLon", endLon,
+    			"depth", depth,
+    			"time", time);
+    }
+    
+    public static void checkPresenceOfQP(Object... objects) {
+    	final JSONArray missingFields = new JSONArray();
+    	for (int i = 1; i < objects.length; i += 2) {
+    		if (objects[i] == null) { missingFields.put(objects[i-1]); }
+    	}
+    	if( missingFields.length() != 0) {
             final JSONObject errorObject = new JSONObject().put( "missingFields", missingFields);
             throw new BadRequestException("Missing query parameters in url.", errorObject);
         }
     }
+    
 }
