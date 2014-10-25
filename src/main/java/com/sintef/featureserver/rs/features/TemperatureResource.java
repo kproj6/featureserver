@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import javax.imageio.ImageIO;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
@@ -29,6 +30,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 
 import org.joda.time.DateTime;
+
 import ucar.ma2.InvalidRangeException;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonPointImpl;
@@ -40,6 +42,8 @@ import ucar.unidata.geoloc.LatLonPointImpl;
  */
 @Path("feature/temperature")
 public class TemperatureResource {
+	
+	public static final double KELVIN_TO_CELSIUS = 273.15;
 	
 	/**
 	 * Back reference to NetCdfManager class for accessing information from NetCDF files.
@@ -80,11 +84,19 @@ public class TemperatureResource {
             @QueryParam("endLat") final Float endLat,
             @QueryParam("endLon") final Float endLon,
             @QueryParam("depth") final Float depth,
-            @QueryParam("time") final String time) throws IOException {
+            @QueryParam("time") final String time,
+            @QueryParam("scale") @DefaultValue("celsius") final String scale)
+            throws IOException {
     	
     	RsUtil.validateAreaQueryParams(startLat, startLon, endLat, endLon, depth, time);
     	
-    	final DateTime dt = DateTime.parse(time);
+    	final DateTime dt;
+        try {
+            dt = DateTime.parse(time);
+        } catch (final IllegalArgumentException e) {
+            throw new BadRequestException("Time format not recognized", e);
+        }
+        
         final LatLonPoint topLeft =
         		new LatLonPointImpl(startLat, startLon);
         final LatLonPoint bottomRight = 
@@ -94,11 +106,23 @@ public class TemperatureResource {
         final double[][] areaData;
         
         try {
-            areaData = netCdfManager.readArea(bounds, "temperature");
+            areaData = netCdfManager.readArea(bounds, NetCdfManager.Variable.TEMPERATURE);
         } catch (final IOException e) {
         	throw new InternalServerException("Could not read data file.", e);
         } catch (final InvalidRangeException e) {
         	throw new BadRequestException("Invalid ranges provided.", e);
+        }
+        
+        if (scale.equalsIgnoreCase("C") || scale.equalsIgnoreCase("Celsius")) {
+        	final int height = areaData.length;
+        	final int width = areaData[0].length;
+        	for (int i = 0; i < height ; i++) {
+        		for (int j = 0; j < width; j++) {
+        			areaData[i][j] = areaData[i][j] - KELVIN_TO_CELSIUS;
+        		}
+        	}
+        } else if (!scale.equalsIgnoreCase("K") && !scale.equalsIgnoreCase("Kelvin")) {
+        	throw new BadRequestException("Unknown scale.");
         }
 
         // @TODO(Arve) Image size
