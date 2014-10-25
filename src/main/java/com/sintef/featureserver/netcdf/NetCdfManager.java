@@ -1,8 +1,11 @@
 package com.sintef.featureserver.netcdf;
 
 import com.sintef.featureserver.FeatureServer;
+import com.sintef.featureserver.exception.InternalServerException;
+
 import java.io.IOException;
 import java.util.logging.Logger;
+
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import ucar.ma2.Array;
 import ucar.ma2.Index;
@@ -25,6 +28,15 @@ import ucar.unidata.geoloc.LatLonRect;
 public class NetCdfManager {
     private static final Logger LOGGER = Logger.getLogger(NetCdfManager.class.getName());
 
+    public static enum Variable {
+    	DEPTH,
+    	SALINITY,
+    	TEMPERATURE,
+    	WATER_VELOCITY,
+    	WIND_VELOCITY,
+    	WTF_VELOCITY // @TODO Change to whatever w_velocity in Sintefs' NetCDFs mean
+    }
+    
     /**
      * Gets the variable values at the given area and depth.
      * @param boundingBox Area we are interested in.
@@ -33,13 +45,114 @@ public class NetCdfManager {
      * @throws IOException
      * @throws InvalidRangeException
      */
-    public double[][] readArea(final AreaBounds boundingBox, final String variableName) throws
-            IOException,
-    InvalidRangeException {
-
+    public double[][] readArea(final AreaBounds boundingBox, final Variable var)
+    		throws IOException, InvalidRangeException {
+    	
+    	// Select the variable name
+    	// @TODO: Move literals to the config file
+    	String variableName;
+    	switch (var) {
+		case DEPTH:
+			variableName = "depth";
+			break;
+		case SALINITY:
+			variableName = "salinity";
+			break;
+		case TEMPERATURE:
+			variableName = "temperature";
+			break;
+		case WATER_VELOCITY:
+			variableName = "u_east";
+			break;
+		case WIND_VELOCITY:
+			variableName = "w_east";
+			break;
+		case WTF_VELOCITY:
+			variableName = "w_velocity";
+			break;
+		default:
+			throw new InternalServerException("Requested unknown NetCDF variable.");
+        }
+    	
+    	// Find files
         final String filename = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
 
-        // Open the dataset, find the variable and its coordinate system
+        // Pick files and areas that will be read in them
+        
+        // Get the dimensions of the result
+        
+        double[][] result; // @TODO: Initialize here with the right dimensions
+        
+        switch (var) {
+		case DEPTH:
+			throw new NotImplementedException();
+		case SALINITY:
+			// Go through files, read it's portion of data and store it to the result array
+			result = getScalars(filename, boundingBox, variableName);
+			break;
+		case TEMPERATURE:
+			// Go through files, read it's portion of data and store it to the result array
+			result = getScalars(filename, boundingBox, variableName);
+			break;
+		case WATER_VELOCITY:
+			throw new NotImplementedException();
+		case WIND_VELOCITY:
+			throw new NotImplementedException();
+		case WTF_VELOCITY:
+			throw new NotImplementedException();
+		default:
+			throw new InternalServerException("Requested unknown NetCDF variable.");
+        }
+        
+        return result;
+    }
+
+    /**
+     * Reads the values along the z-axis at a given point for the a given variable.
+     * For example: Temperature profile at some location.
+     *
+     * @param location The point where the profile is to be sampled.
+     * @param variableName The type variable we are interested in.
+     */
+    public short[] readDepthProfile(final LatLonPoint location, final String variableName){
+        throw new NotImplementedException();
+    }
+
+    /**
+     * Calculates the stride (i.e. N in `get every N'th data point) used when fetching data,
+     * to avoid returning too many datapoints for the requested region
+     * @return int[strideX, strideY]
+     */
+    private int[] calculateStride(final LatLonRect bounds){
+        // Hardcoded to a stride of 1; meaning include every single data point in the region.
+        // @TODO(Arve) fixme
+        return new int[] {1, 1};
+    }
+
+    /**
+     * @return path to the file containing the relevant data matching the requested bounds.
+     * Should consider scale when appropriate (i.e. a huge spatial region -> use a coarse data
+     * source.
+     * @TODO(Arve) Currently returns a single file passed as launch parameter.
+     * This should talk to the index instead.
+     */
+    private String getCorrectFilePath(final AreaBounds bounds){
+        return FeatureServer.netCdfFile;
+    }
+
+	/**
+	 * @param filename
+	 * @param boundingBox 
+	 * @param variable
+	 * @return
+	 * @throws IOException 
+	 * @throws InvalidRangeException 
+	 */
+	private double[][] getScalars(
+			String filename, AreaBounds boundingBox, String variable)
+			throws IOException, InvalidRangeException {
+        
+		// Open the dataset, find the variable and its coordinate system
         final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(filename);
         final GridDatatype grid = gds.findGridDatatype(variableName);
         final GridCoordSystem gcs = grid.getCoordinateSystem();
@@ -80,40 +193,9 @@ public class NetCdfManager {
             for (int j=0; j<shape[1]; j++) {
                 result[i][j] = areaData.getDouble(index.set(i,j));
             }
-        }
+		}
+        
         return result;
-    }
-
-    /**
-     * Reads the values along the z-axis at a given point for the a given variable.
-     * For example: Temperature profile at some location.
-     *
-     * @param location The point where the profile is to be sampled.
-     * @param variableName The type variable we are interested in.
-     */
-    public short[] readDepthProfile(final LatLonPoint location, final String variableName){
-        throw new NotImplementedException();
-    }
-
-    /**
-     * Calculates the stride (i.e. N in `get every N'th data point) used when fetching data,
-     * to avoid returning too many datapoints for the requested region
-     * @return int[strideX, strideY]
-     */
-    private int[] calculateStride(final LatLonRect bounds){
-        // Hardcoded to a stride of 1; meaning include every single data point in the region.
-        // @TODO(Arve) fixme
-        return new int[] {1, 1};
-    }
-
-    /**
-     * @return path to the file containing the relevant data matching the requested bounds.
-     * Should consider scale when appropriate (i.e. a huge spatial region -> use a coarse data
-     * source.
-     * @TODO(Arve) Currently returns a single file passed as launch parameter.
-     * This should talk to the index instead.
-     */
-    private String getCorrectFilePath(final AreaBounds bounds){
-        return FeatureServer.netCdfFile;
-    }
+	}
+    
 }

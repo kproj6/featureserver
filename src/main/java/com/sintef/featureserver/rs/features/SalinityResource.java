@@ -68,7 +68,7 @@ public class SalinityResource {
         final AreaBounds bounds = new AreaBounds(upperLeft, lowerRight, depth, dt);
         final double[][] areaData;
         try {
-            areaData = netCdfManager.readArea(bounds, "salinity");
+            areaData = netCdfManager.readArea(bounds, NetCdfManager.Variable.SALINITY);
         } catch (final IOException e) {
             throw new InternalServerException("Could not read data file.", e);
         } catch (final InvalidRangeException e) {
