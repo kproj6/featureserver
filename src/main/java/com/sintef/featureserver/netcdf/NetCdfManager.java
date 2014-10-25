@@ -40,7 +40,7 @@ public class NetCdfManager {
     		throws IOException, InvalidRangeException {
     	
     	// Select the variable name that will be used for dimension calculations
-    	// @TODO: Move literals to the config file
+    	// I am not sure, but maybe it does not matter which one will be used here
     	String variableName;
     	switch (var) {
 		case DEPTH:
@@ -74,7 +74,8 @@ public class NetCdfManager {
     	// Find files
         final String filename = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
 
-        // Pick files and areas that will be read in them
+        // Pick files (if there are multiple files with same data)
+        // and areas that will be read in them
         
         // Get the dimensions of the result
         
@@ -82,7 +83,9 @@ public class NetCdfManager {
         
         switch (var) {
 		case DEPTH:
-			throw new NotImplementedException();
+			// Go through files, read it's portion of data and store it to the result array
+			result = getScalar2DVars(filename, boundingBox, variableName);
+			break;
 		case SALINITY:
 			// Go through files, read it's portion of data and store it to the result array
 			result = getScalars(filename, boundingBox, variableName);
@@ -98,7 +101,8 @@ public class NetCdfManager {
 		case WTF_VELOCITY:
 			throw new NotImplementedException();
 		case CURRENT_MAGNITUDE:
-			result = getScalarFromVector4DVars(filename, boundingBox, "u_east", "v_north");
+			// Go through files, read it's portion of data and store it to the result array
+			result = getMagnitudeOfVector4DVars(filename, boundingBox, "u_east", "v_north");
 			break;
 		case CURRENT_DIRECTION:
 			throw new NotImplementedException();
@@ -143,10 +147,12 @@ public class NetCdfManager {
     }
 
 	/**
-	 * @param filename
-	 * @param boundingBox 
-	 * @param variable
-	 * @return
+	 * Reads array of scalar values which represents 4D variables in given NetCDF file.
+	 * 
+	 * @param filename Name of the file, that should be read.
+	 * @param boundingBox Bounds of the area that should be returned.
+	 * @param variable Name of 4D variable that should be returned.
+	 * @return Array of scalar values representing given variable.
 	 * @throws IOException 
 	 * @throws InvalidRangeException 
 	 */
@@ -202,12 +208,17 @@ public class NetCdfManager {
     
 
     /**
-	 * @param filename
-	 * @param boundingBox
-	 * @param variableName
-	 * @return
+     * Reads arrays of vectors of 4D variables and returns it's magnitudes.
+     * 
+	 * @param filename Name of the file, that should be read.
+	 * @param boundingBox Bounds of the area that should be returned.
+	 * @param xVariable Name of 4D variable that represents magnitude in east-west direction.
+	 * @param yVariable Name of 4D variable that represents magnitude in north-south direction.
+	 * @return Array of magnitudes.
+	 * @throws IOException 
+	 * @throws InvalidRangeException 
 	 */
-	private double[][] getScalarFromVector4DVars(
+	private double[][] getMagnitudeOfVector4DVars(
 			String filename, AreaBounds boundingBox, String xVariable, String yVariable)
 					throws IOException, InvalidRangeException {
 		
@@ -257,6 +268,52 @@ public class NetCdfManager {
             			Math.pow(xData.getDouble(xIndex.set(i,j)), 2) + 
             			Math.pow(yData.getDouble(yIndex.set(i,j)), 2)
             	);
+            }
+        }
+        
+        return result;
+	}
+	
+	/**
+	 * Reads array of scalar values which represents 2D variables in given NetCDF file.
+	 * 
+	 * @param filename Name of the file, that should be read.
+	 * @param boundingBox Bounds of the area that should be returned. (Only upperLeft and lowerRight points are used)
+	 * @param variableName Name of the 2D variable that should be returned.
+	 * @return Array of scalar values representing given variable.
+	 * @throws IOException 
+	 * @throws InvalidRangeException 
+	 */
+	private double[][] getScalar2DVars(
+			String filename, AreaBounds boundingBox, String variableName)
+			throws IOException, InvalidRangeException {
+		
+		// Open the dataset, find the variable and its coordinate system
+        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(filename);
+        final GridDatatype grid = gds.findGridDatatype(variableName);
+		
+        // Crop the X and Y dimensions
+        // @TODO(Arve) calculate stride properly!
+        final GridDatatype gridSubset = grid.makeSubset(
+                null, // time range. Null to keep everything
+                null, // Z range. Null to keep everything
+                boundingBox.getRect(), // Rectangle we are interested in
+                1, // Z stride
+                1, // Y stride
+                1); // X stride
+
+        // Gridsubset is now the volume we are interested in.
+        // -1 to get everything along X and Y dimension.
+        final Array areaData = gridSubset.readDataSlice(-1, -1, -1, -1);
+
+        // Create array to hold the data
+        final int[] shape = areaData.getShape();
+        final double[][] result = new double[shape[0]][shape[1]];
+
+        final Index index = areaData.getIndex();
+        for (int i=0; i<shape[0]; i++) {
+            for (int j=0; j<shape[1]; j++) {
+                result[i][j] = areaData.getDouble(index.set(i,j));
             }
         }
         
