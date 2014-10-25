@@ -54,12 +54,19 @@ public class NetCdfManager {
                 1, // Y stride
                 1); // X stride
 
-        final CoordinateAxis1DTime timeAxis = gcs.getTimeAxis1D();
-        final int timeIndex = timeAxis.findTimeIndexFromDate(boundingBox.getTime().toDate());
+        // Default values for Depth and time: If the data volume does not have these axes (i.e.
+        // only a single depth layer or time slice, then we grab "everything along that axis")
+        int timeIndex = -1;
+        int depthIndex = -1;
+        if(gcs.hasTimeAxis()) {
+            final CoordinateAxis1DTime timeAxis = gcs.getTimeAxis1D();
+            timeIndex = timeAxis.findTimeIndexFromDate(boundingBox.getTime().toDate());
+        }
 
         final CoordinateAxis1D depthAxis = gcs.getVerticalAxis();
-        final int depthIndex =  depthAxis.findCoordElementBounded(boundingBox.getDepth());
-
+        if (depthAxis != null) {
+            depthIndex = depthAxis.findCoordElementBounded(boundingBox.getDepth());
+        }
         // Gridsubset is now the volume we are interested in.
         // -1 to get everything along X and Y dimension.
         final Array areaData = gridSubset.readDataSlice(timeIndex, depthIndex, -1, -1);
