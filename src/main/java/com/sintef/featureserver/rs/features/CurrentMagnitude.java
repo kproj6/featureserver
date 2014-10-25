@@ -46,6 +46,7 @@ public class CurrentMagnitude {
      * results in a 400 bad request response.
      */
     @GET
+    @Path("area")
     public Response currentInRegionAtTime(
             @QueryParam("startLat") final Float startLat,
             @QueryParam("startLon") final Float startLon,
@@ -63,43 +64,27 @@ public class CurrentMagnitude {
             throw new BadRequestException("Time format not recognized", e);
         }
 
-        final LatLonPoint upperLeft = new LatLonPointImpl(startLat, startLon);
-        final LatLonPoint lowerRight = new LatLonPointImpl(endLat, endLon);
-        final AreaBounds bounds = new AreaBounds(upperLeft, lowerRight, depth, dt);
-        final double[][] eastVelocity;
-        final double[][] northVelocity;
+        final LatLonPoint topLeft =
+        		new LatLonPointImpl(startLat, startLon);
+        final LatLonPoint bottomRight = 
+        		new LatLonPointImpl(endLat, endLon);
+        final AreaBounds bounds = 
+        		new AreaBounds(topLeft, bottomRight, depth, dt);
+        final double[][] areaData;
 
         try {
-            eastVelocity = netCdfManager.readArea(bounds, "u_east");
-            northVelocity = netCdfManager.readArea(bounds, "v_north");
+        	areaData = netCdfManager.readArea(bounds, Feature.CURRENT_MAGNITUDE);
         } catch (final IOException e) {
             throw new InternalServerException("Could not read data file.", e);
         } catch (final InvalidRangeException e) {
             throw new BadRequestException("Invalid ranges provided.", e);
         }
-        final double[][] magnitude = magnitudeArray(eastVelocity, northVelocity);
-        final BufferedImage image = ImageRenderer.render(magnitude, Feature.CURRENT_MAGNITUDE, true);
+        
+        final BufferedImage image = ImageRenderer.render(areaData, Feature.CURRENT_MAGNITUDE, true);
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(image, "png", baos);
         final byte[] imageData = baos.toByteArray();
         return Response.ok(imageData).type("image/png").build();
     }
 
-    private double[][] magnitudeArray(final double[][] east, final double[][] north){
-        final int e_width = east[0].length;
-        final int e_height = east.length;
-        final int n_width = north[0].length;
-        final int n_height = north.length;
-        if (e_width != n_width || e_height != n_height) {
-            throw new InternalServerException("Malformed source data. Variables u_east and " +
-                    "v_north do not contain the same amount of data points for the selected " +
-                    "region!");
-        }
-        final double[][] result = new double[e_height][e_width];
-        for (int y = 0; y < e_height; y++)
-            for (int x = 0; x < e_width; x++) {
-                result[y][x] = Math.sqrt(east[y][x] * east[y][x] + north[y][x] * north[y][x]);
-            }
-        return result;
-    }
 }

@@ -106,7 +106,7 @@ public class TemperatureResource {
         final double[][] areaData;
         
         try {
-            areaData = netCdfManager.readArea(bounds, NetCdfManager.Variable.TEMPERATURE);
+            areaData = netCdfManager.readArea(bounds, Feature.TEMPERATURE);
         } catch (final IOException e) {
         	throw new InternalServerException("Could not read data file.", e);
         } catch (final InvalidRangeException e) {

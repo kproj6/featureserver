@@ -46,6 +46,7 @@ public class SalinityResource {
      * results in a 400 bad request response.
      */
     @GET
+    @Path("area")
     public Response salinityInRegionAtTime(
             @QueryParam("startLat") final Float startLat,
             @QueryParam("startLon") final Float startLon,
@@ -68,7 +69,7 @@ public class SalinityResource {
         final AreaBounds bounds = new AreaBounds(upperLeft, lowerRight, depth, dt);
         final double[][] areaData;
         try {
-            areaData = netCdfManager.readArea(bounds, NetCdfManager.Variable.SALINITY);
+            areaData = netCdfManager.readArea(bounds, Feature.SALINITY);
         } catch (final IOException e) {
             throw new InternalServerException("Could not read data file.", e);
         } catch (final InvalidRangeException e) {

@@ -27,15 +27,6 @@ import ucar.unidata.geoloc.LatLonRect;
  */
 public class NetCdfManager {
     private static final Logger LOGGER = Logger.getLogger(NetCdfManager.class.getName());
-
-    public static enum Variable {
-    	DEPTH,
-    	SALINITY,
-    	TEMPERATURE,
-    	WATER_VELOCITY,
-    	WIND_VELOCITY,
-    	WTF_VELOCITY // @TODO Change to whatever w_velocity in Sintefs' NetCDFs mean
-    }
     
     /**
      * Gets the variable values at the given area and depth.
@@ -45,10 +36,10 @@ public class NetCdfManager {
      * @throws IOException
      * @throws InvalidRangeException
      */
-    public double[][] readArea(final AreaBounds boundingBox, final Variable var)
+    public double[][] readArea(final AreaBounds boundingBox, final Feature var)
     		throws IOException, InvalidRangeException {
     	
-    	// Select the variable name
+    	// Select the variable name that will be used for dimension calculations
     	// @TODO: Move literals to the config file
     	String variableName;
     	switch (var) {
@@ -70,8 +61,14 @@ public class NetCdfManager {
 		case WTF_VELOCITY:
 			variableName = "w_velocity";
 			break;
+		case CURRENT_MAGNITUDE:
+			variableName = "u_east";
+			break;
+		case CURRENT_DIRECTION:
+			variableName = "u_east";
+			break;
 		default:
-			throw new InternalServerException("Requested unknown NetCDF variable.");
+			throw new InternalServerException("Requested unknown feature.");
         }
     	
     	// Find files
@@ -100,14 +97,19 @@ public class NetCdfManager {
 			throw new NotImplementedException();
 		case WTF_VELOCITY:
 			throw new NotImplementedException();
+		case CURRENT_MAGNITUDE:
+			result = getScalarFromVector4DVars(filename, boundingBox, "u_east", "v_north");
+			break;
+		case CURRENT_DIRECTION:
+			throw new NotImplementedException();
 		default:
-			throw new InternalServerException("Requested unknown NetCDF variable.");
+			throw new InternalServerException("Requested unknown feature.");
         }
         
         return result;
     }
 
-    /**
+	/**
      * Reads the values along the z-axis at a given point for the a given variable.
      * For example: Temperature profile at some location.
      *
@@ -191,4 +193,66 @@ public class NetCdfManager {
         return result;
 	}
     
+
+    /**
+	 * @param filename
+	 * @param boundingBox
+	 * @param variableName
+	 * @return
+	 */
+	private double[][] getScalarFromVector4DVars(
+			String filename, AreaBounds boundingBox, String xVariable, String yVariable)
+					throws IOException, InvalidRangeException {
+		
+		// Open the dataset, find the variable and its coordinate system
+        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(filename);
+        final GridDatatype xGrid = gds.findGridDatatype(xVariable);
+        final GridDatatype yGrid = gds.findGridDatatype(yVariable);
+        final GridCoordSystem gcs = xGrid.getCoordinateSystem();
+		
+        // Crop the X and Y dimensions
+        // @TODO(Arve) calculate stride properly!
+        final GridDatatype xGridSubset = xGrid.makeSubset(
+                null, // time range. Null to keep everything
+                null, // Z range. Null to keep everything
+                boundingBox.getRect(), // Rectangle we are interested in
+                1, // Z stride
+                1, // Y stride
+                1); // X stride
+        final GridDatatype yGridSubset = yGrid.makeSubset(
+                null, // time range. Null to keep everything
+                null, // Z range. Null to keep everything
+                boundingBox.getRect(), // Rectangle we are interested in
+                1, // Z stride
+                1, // Y stride
+                1); // X stride
+
+        final CoordinateAxis1DTime timeAxis = gcs.getTimeAxis1D();
+        final int timeIndex = timeAxis.findTimeIndexFromDate(boundingBox.getTime().toDate());
+
+        final CoordinateAxis1D depthAxis = gcs.getVerticalAxis();
+        final int depthIndex =  depthAxis.findCoordElementBounded(boundingBox.getDepth());
+
+        // Gridsubset is now the volume we are interested in.
+        // -1 to get everything along X and Y dimension.
+        final Array xData = xGridSubset.readDataSlice(timeIndex, depthIndex, -1, -1);
+        final Array yData = yGridSubset.readDataSlice(timeIndex, depthIndex, -1, -1);
+
+        // Create array to hold the data
+        final int[] shape = xData.getShape();
+        final double[][] result = new double[shape[0]][shape[1]];
+
+        final Index xIndex = xData.getIndex();
+        final Index yIndex = yData.getIndex();
+        for (int i=0; i<shape[0]; i++) {
+            for (int j=0; j<shape[1]; j++) {
+            	result[i][j] = Math.sqrt(
+            			Math.pow(xData.getDouble(xIndex.set(i,j)), 2) + 
+            			Math.pow(yData.getDouble(yIndex.set(i,j)), 2)
+            	);
+            }
+        }
+        
+        return result;
+	}
 }
