@@ -1,3 +1,9 @@
 .idea/
 *.iml
 target/
+
+# Eclipse garbage
+.project
+.classpath
+.settings/*
+# End of Eclipse garbage

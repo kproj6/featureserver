@@ -1,8 +1,11 @@
 package com.sintef.featureserver.netcdf;
 
 import com.sintef.featureserver.FeatureServer;
+import com.sintef.featureserver.exception.InternalServerException;
+
 import java.io.IOException;
 import java.util.logging.Logger;
+
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import ucar.ma2.Array;
 import ucar.ma2.Index;
@@ -24,7 +27,7 @@ import ucar.unidata.geoloc.LatLonRect;
  */
 public class NetCdfManager {
     private static final Logger LOGGER = Logger.getLogger(NetCdfManager.class.getName());
-
+    
     /**
      * Gets the variable values at the given area and depth.
      * @param boundingBox Area we are interested in.
@@ -33,15 +36,101 @@ public class NetCdfManager {
      * @throws IOException
      * @throws InvalidRangeException
      */
-    public double[][] readArea(final AreaBounds boundingBox, final String variableName) throws
-            IOException,
-    InvalidRangeException {
-
+    public double[][] readArea(final AreaBounds boundingBox, final Feature var)
+    		throws IOException, InvalidRangeException {
+    	
+    	// Find files
         final String filename = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
 
-        // Open the dataset, find the variable and its coordinate system
+        // Pick files (if there are multiple files with same data)
+        // and areas that will be read in them
+        
+        // Get the dimensions of the result
+        
+        double[][] result; // @TODO: Initialize here with the right dimensions
+        
+        switch (var) {
+		case DEPTH:
+			// Go through files, read it's portion of data and store it to the result array
+			result = getScalars(filename, boundingBox, var.toString());
+			break;
+		case SALINITY:
+			// Go through files, read it's portion of data and store it to the result array
+			result = getScalars(filename, boundingBox, var.toString());
+			break;
+		case TEMPERATURE:
+			// Go through files, read it's portion of data and store it to the result array
+			result = getScalars(filename, boundingBox, var.toString());
+			break;
+		case WATER_VELOCITY:
+			throw new NotImplementedException();
+		case WIND_VELOCITY:
+			throw new NotImplementedException();
+		case WTF_VELOCITY:
+			throw new NotImplementedException();
+		case CURRENT_MAGNITUDE:
+			// Go through files, read it's portion of data and store it to the result array
+			result = getVectorMagnitudes(filename, boundingBox, "u_east", "v_north");
+			break;
+		case CURRENT_DIRECTION:
+			throw new NotImplementedException();
+		default:
+			throw new InternalServerException("Requested unknown feature.");
+        }
+        
+        return result;
+    }
+
+	/**
+     * Reads the values along the z-axis at a given point for the a given variable.
+     * For example: Temperature profile at some location.
+     *
+     * @param location The point where the profile is to be sampled.
+     * @param variableName The type variable we are interested in.
+     */
+    public short[] readDepthProfile(final LatLonPoint location, final String variableName){
+        throw new NotImplementedException();
+    }
+
+    /**
+     * Calculates the stride (i.e. N in `get every N'th data point) used when fetching data,
+     * to avoid returning too many datapoints for the requested region
+     * @return int[strideX, strideY]
+     */
+    private int[] calculateStride(final LatLonRect bounds){
+        // Hardcoded to a stride of 1; meaning include every single data point in the region.
+        // @TODO(Arve) fixme
+        return new int[] {1, 1};
+    }
+
+    /**
+     * @return path to the file containing the relevant data matching the requested bounds.
+     * Should consider scale when appropriate (i.e. a huge spatial region -> use a coarse data
+     * source.
+     * @TODO(Arve) Currently returns a single file passed as launch parameter.
+     * This should talk to the index instead.
+     */
+    private String getCorrectFilePath(final AreaBounds bounds){
+        return FeatureServer.netCdfFile;
+    }
+
+	/**
+	 * Reads array of scalar values which represents 4D variables in given NetCDF file.
+	 * 
+	 * @param filename Name of the file, that should be read.
+	 * @param boundingBox Bounds of the area that should be returned.
+	 * @param variable Name of 4D variable that should be returned.
+	 * @return Array of scalar values representing given variable.
+	 * @throws IOException 
+	 * @throws InvalidRangeException 
+	 */
+	private double[][] getScalars(
+			String filename, AreaBounds boundingBox, String variable)
+			throws IOException, InvalidRangeException {
+        
+		// Open the dataset, find the variable and its coordinate system
         final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(filename);
-        final GridDatatype grid = gds.findGridDatatype(variableName);
+        final GridDatatype grid = gds.findGridDatatype(variable);
         final GridCoordSystem gcs = grid.getCoordinateSystem();
 
         // Crop the X and Y dimensions
@@ -80,40 +169,77 @@ public class NetCdfManager {
             for (int j=0; j<shape[1]; j++) {
                 result[i][j] = areaData.getDouble(index.set(i,j));
             }
-        }
+		}
+        
         return result;
-    }
+	}
+    
 
     /**
-     * Reads the values along the z-axis at a given point for the a given variable.
-     * For example: Temperature profile at some location.
-     *
-     * @param location The point where the profile is to be sampled.
-     * @param variableName The type variable we are interested in.
-     */
-    public short[] readDepthProfile(final LatLonPoint location, final String variableName){
-        throw new NotImplementedException();
-    }
+     * Reads arrays of vectors of 4D variables and returns it's magnitudes.
+     * 
+	 * @param filename Name of the file, that should be read.
+	 * @param boundingBox Bounds of the area that should be returned.
+	 * @param xVariable Name of 4D variable that represents magnitude in east-west direction.
+	 * @param yVariable Name of 4D variable that represents magnitude in north-south direction.
+	 * @return Array of magnitudes.
+	 * @throws IOException 
+	 * @throws InvalidRangeException 
+	 */
+	private double[][] getVectorMagnitudes(
+			String filename, AreaBounds boundingBox, String xVariable, String yVariable)
+					throws IOException, InvalidRangeException {
+		
+		// Open the dataset, find the variable and its coordinate system
+        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(filename);
+        final GridDatatype xGrid = gds.findGridDatatype(xVariable);
+        final GridDatatype yGrid = gds.findGridDatatype(yVariable);
+        final GridCoordSystem gcs = xGrid.getCoordinateSystem();
+		
+        // Crop the X and Y dimensions
+        // @TODO(Arve) calculate stride properly!
+        final GridDatatype xGridSubset = xGrid.makeSubset(
+                null, // time range. Null to keep everything
+                null, // Z range. Null to keep everything
+                boundingBox.getRect(), // Rectangle we are interested in
+                1, // Z stride
+                1, // Y stride
+                1); // X stride
+        final GridDatatype yGridSubset = yGrid.makeSubset(
+                null, // time range. Null to keep everything
+                null, // Z range. Null to keep everything
+                boundingBox.getRect(), // Rectangle we are interested in
+                1, // Z stride
+                1, // Y stride
+                1); // X stride
 
-    /**
-     * Calculates the stride (i.e. N in `get every N'th data point) used when fetching data,
-     * to avoid returning too many datapoints for the requested region
-     * @return int[strideX, strideY]
-     */
-    private int[] calculateStride(final LatLonRect bounds){
-        // Hardcoded to a stride of 1; meaning include every single data point in the region.
-        // @TODO(Arve) fixme
-        return new int[] {1, 1};
-    }
+        final CoordinateAxis1DTime timeAxis = gcs.getTimeAxis1D();
+        final int timeIndex = timeAxis.findTimeIndexFromDate(boundingBox.getTime().toDate());
 
-    /**
-     * @return path to the file containing the relevant data matching the requested bounds.
-     * Should consider scale when appropriate (i.e. a huge spatial region -> use a coarse data
-     * source.
-     * @TODO(Arve) Currently returns a single file passed as launch parameter.
-     * This should talk to the index instead.
-     */
-    private String getCorrectFilePath(final AreaBounds bounds){
-        return FeatureServer.netCdfFile;
-    }
+        final CoordinateAxis1D depthAxis = gcs.getVerticalAxis();
+        final int depthIndex =  depthAxis.findCoordElementBounded(boundingBox.getDepth());
+
+        // Gridsubset is now the volume we are interested in.
+        // -1 to get everything along X and Y dimension.
+        final Array xData = xGridSubset.readDataSlice(timeIndex, depthIndex, -1, -1);
+        final Array yData = yGridSubset.readDataSlice(timeIndex, depthIndex, -1, -1);
+
+        // Create array to hold the data
+        final int[] shape = xData.getShape();
+        final double[][] result = new double[shape[0]][shape[1]];
+
+        final Index xIndex = xData.getIndex();
+        final Index yIndex = yData.getIndex();
+        for (int i=0; i<shape[0]; i++) {
+            for (int j=0; j<shape[1]; j++) {
+            	result[i][j] = Math.sqrt(
+            			Math.pow(xData.getDouble(xIndex.set(i,j)), 2) + 
+            			Math.pow(yData.getDouble(yIndex.set(i,j)), 2)
+            	);
+            }
+        }
+        
+        return result;
+	}
+	
 }

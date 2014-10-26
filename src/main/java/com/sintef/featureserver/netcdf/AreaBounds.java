@@ -11,11 +11,14 @@ import ucar.unidata.geoloc.LatLonRect;
 public class AreaBounds {
     final LatLonPoint upperLeft;
     final LatLonPoint lowerRight;
-    private final float depth;
+    private final Float depth;
     private final DateTime time;
 
     /**
      * Preferred constructor
+     * 
+     * Creates bounds in 4D.
+     * 
      * @param upperLeft Upper left corner of the area
      * @param lowerRight Lower left corner of the area
      * @param time
@@ -24,12 +27,29 @@ public class AreaBounds {
     public AreaBounds(
             final LatLonPoint upperLeft,
             final LatLonPoint lowerRight,
-            final float depth,
+            final Float depth,
             final DateTime time) {
         this.upperLeft = upperLeft;
         this.lowerRight = lowerRight;
         this.depth = depth;
         this.time = time;
+    }
+    
+    /**
+     * Alternative constructor
+     * 
+     * Creates bounds in 2D.
+     * 
+     * @param upperLeft Upper left corner of the area
+     * @param lowerRight Lower left corner of the area
+     */
+    public AreaBounds(
+            final LatLonPoint upperLeft,
+            final LatLonPoint lowerRight) {
+        this.upperLeft = upperLeft;
+        this.lowerRight = lowerRight;
+        this.depth = null;
+        this.time = null;
     }
 
 
@@ -40,9 +60,12 @@ public class AreaBounds {
     public DateTime getTime() { return time; }
 
     public String toString(){
-        return "rect: " + getRect().toString()
-                + "depth" + depth
-                + "date" + time.toString();
-
+    	if (depth == null) {
+    		return "rect: " + getRect().toString();
+    	} else {
+	        return "rect: " + getRect().toString()
+	                + "depth" + depth
+	                + "date" + time.toString();
+    	}
     }
 }
