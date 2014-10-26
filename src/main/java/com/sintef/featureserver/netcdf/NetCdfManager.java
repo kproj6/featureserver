@@ -84,7 +84,7 @@ public class NetCdfManager {
         switch (var) {
 		case DEPTH:
 			// Go through files, read it's portion of data and store it to the result array
-			result = getScalar2DVars(filename, boundingBox, variableName);
+			result = getScalars(filename, boundingBox, variableName);
 			break;
 		case SALINITY:
 			// Go through files, read it's portion of data and store it to the result array
@@ -102,7 +102,7 @@ public class NetCdfManager {
 			throw new NotImplementedException();
 		case CURRENT_MAGNITUDE:
 			// Go through files, read it's portion of data and store it to the result array
-			result = getMagnitudeOfVector4DVars(filename, boundingBox, "u_east", "v_north");
+			result = getVectorMagnitudes(filename, boundingBox, "u_east", "v_north");
 			break;
 		case CURRENT_DIRECTION:
 			throw new NotImplementedException();
@@ -162,7 +162,7 @@ public class NetCdfManager {
         
 		// Open the dataset, find the variable and its coordinate system
         final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(filename);
-        final GridDatatype grid = gds.findGridDatatype(variableName);
+        final GridDatatype grid = gds.findGridDatatype(variable);
         final GridCoordSystem gcs = grid.getCoordinateSystem();
 
         // Crop the X and Y dimensions
@@ -218,7 +218,7 @@ public class NetCdfManager {
 	 * @throws IOException 
 	 * @throws InvalidRangeException 
 	 */
-	private double[][] getMagnitudeOfVector4DVars(
+	private double[][] getVectorMagnitudes(
 			String filename, AreaBounds boundingBox, String xVariable, String yVariable)
 					throws IOException, InvalidRangeException {
 		
@@ -274,49 +274,4 @@ public class NetCdfManager {
         return result;
 	}
 	
-	/**
-	 * Reads array of scalar values which represents 2D variables in given NetCDF file.
-	 * 
-	 * @param filename Name of the file, that should be read.
-	 * @param boundingBox Bounds of the area that should be returned. (Only upperLeft and lowerRight points are used)
-	 * @param variableName Name of the 2D variable that should be returned.
-	 * @return Array of scalar values representing given variable.
-	 * @throws IOException 
-	 * @throws InvalidRangeException 
-	 */
-	private double[][] getScalar2DVars(
-			String filename, AreaBounds boundingBox, String variableName)
-			throws IOException, InvalidRangeException {
-		
-		// Open the dataset, find the variable and its coordinate system
-        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(filename);
-        final GridDatatype grid = gds.findGridDatatype(variableName);
-		
-        // Crop the X and Y dimensions
-        // @TODO(Arve) calculate stride properly!
-        final GridDatatype gridSubset = grid.makeSubset(
-                null, // time range. Null to keep everything
-                null, // Z range. Null to keep everything
-                boundingBox.getRect(), // Rectangle we are interested in
-                1, // Z stride
-                1, // Y stride
-                1); // X stride
-
-        // Gridsubset is now the volume we are interested in.
-        // -1 to get everything along X and Y dimension.
-        final Array areaData = gridSubset.readDataSlice(-1, -1, -1, -1);
-
-        // Create array to hold the data
-        final int[] shape = areaData.getShape();
-        final double[][] result = new double[shape[0]][shape[1]];
-
-        final Index index = areaData.getIndex();
-        for (int i=0; i<shape[0]; i++) {
-            for (int j=0; j<shape[1]; j++) {
-                result[i][j] = areaData.getDouble(index.set(i,j));
-            }
-        }
-        
-        return result;
-	}
 }
