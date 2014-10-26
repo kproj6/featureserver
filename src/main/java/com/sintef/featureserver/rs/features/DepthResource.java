@@ -86,12 +86,9 @@ public class DepthResource {
     			"endLat", endLat,
     			"endLon", endLon);
         
-        final LatLonPoint topLeft =
-        		new LatLonPointImpl(startLat, startLon);
-        final LatLonPoint bottomRight = 
-        		new LatLonPointImpl(endLat, endLon);
-        final AreaBounds bounds = 
-        		new AreaBounds(topLeft, bottomRight);
+        final LatLonPoint topLeft = new LatLonPointImpl(startLat, startLon);
+        final LatLonPoint bottomRight = new LatLonPointImpl(endLat, endLon);
+        final AreaBounds bounds = new AreaBounds(topLeft, bottomRight);
         final double[][] areaData;
         
         try {

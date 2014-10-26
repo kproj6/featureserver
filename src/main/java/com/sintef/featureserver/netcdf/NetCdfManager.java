@@ -39,38 +39,6 @@ public class NetCdfManager {
     public double[][] readArea(final AreaBounds boundingBox, final Feature var)
     		throws IOException, InvalidRangeException {
     	
-    	// Select the variable name that will be used for dimension calculations
-    	// I am not sure, but maybe it does not matter which one will be used here
-    	String variableName;
-    	switch (var) {
-		case DEPTH:
-			variableName = "depth";
-			break;
-		case SALINITY:
-			variableName = "salinity";
-			break;
-		case TEMPERATURE:
-			variableName = "temperature";
-			break;
-		case WATER_VELOCITY:
-			variableName = "u_east";
-			break;
-		case WIND_VELOCITY:
-			variableName = "w_east";
-			break;
-		case WTF_VELOCITY:
-			variableName = "w_velocity";
-			break;
-		case CURRENT_MAGNITUDE:
-			variableName = "u_east";
-			break;
-		case CURRENT_DIRECTION:
-			variableName = "u_east";
-			break;
-		default:
-			throw new InternalServerException("Requested unknown feature.");
-        }
-    	
     	// Find files
         final String filename = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
 
@@ -84,15 +52,15 @@ public class NetCdfManager {
         switch (var) {
 		case DEPTH:
 			// Go through files, read it's portion of data and store it to the result array
-			result = getScalars(filename, boundingBox, variableName);
+			result = getScalars(filename, boundingBox, var.toString());
 			break;
 		case SALINITY:
 			// Go through files, read it's portion of data and store it to the result array
-			result = getScalars(filename, boundingBox, variableName);
+			result = getScalars(filename, boundingBox, var.toString());
 			break;
 		case TEMPERATURE:
 			// Go through files, read it's portion of data and store it to the result array
-			result = getScalars(filename, boundingBox, variableName);
+			result = getScalars(filename, boundingBox, var.toString());
 			break;
 		case WATER_VELOCITY:
 			throw new NotImplementedException();

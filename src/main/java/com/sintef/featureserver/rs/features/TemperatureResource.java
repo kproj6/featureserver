@@ -101,12 +101,9 @@ public class TemperatureResource {
             throw new BadRequestException("Time format not recognized", e);
         }
         
-        final LatLonPoint topLeft =
-        		new LatLonPointImpl(startLat, startLon);
-        final LatLonPoint bottomRight = 
-        		new LatLonPointImpl(endLat, endLon);
-        final AreaBounds bounds = 
-        		new AreaBounds(topLeft, bottomRight, depth, dt);
+        final LatLonPoint topLeft = new LatLonPointImpl(startLat, startLon);
+        final LatLonPoint bottomRight = new LatLonPointImpl(endLat, endLon);
+        final AreaBounds bounds = new AreaBounds(topLeft, bottomRight, depth, dt);
         final double[][] areaData;
         
         try {
