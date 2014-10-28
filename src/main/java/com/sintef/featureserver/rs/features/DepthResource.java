@@ -69,6 +69,7 @@ public class DepthResource {
 	 * @throws IOException
 	 */
 	@GET
+	@Path("area")
 	public Response depthInRegion (
 			@QueryParam("startLat") final Float startLat,
 			@QueryParam("startLon") final Float startLon,
