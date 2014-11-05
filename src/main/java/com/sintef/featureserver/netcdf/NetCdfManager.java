@@ -3,15 +3,14 @@ package com.sintef.featureserver.netcdf;
 import com.sintef.featureserver.FeatureServer;
 import com.sintef.featureserver.exception.InternalServerException;
 import com.sintef.featureserver.util.NetCdfDescriptor;
-
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.logging.Logger;
-
+import java.util.List;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import ucar.ma2.Array;
 import ucar.ma2.Index;
 import ucar.ma2.InvalidRangeException;
+import ucar.nc2.Attribute;
 import ucar.nc2.dataset.CoordinateAxis1D;
 import ucar.nc2.dataset.CoordinateAxis1DTime;
 import ucar.nc2.dt.GridCoordSystem;
@@ -23,12 +22,10 @@ import ucar.unidata.geoloc.LatLonRect;
 /**
  * Manages netCdfFiles. Selects the appropriate file to read data from based on the bounds the
  * user specified, downsamples the data to a sane density and returns the result.
- * @TODO (Arve) Should probably handle the caching strategy as well.
  * @TODO(Arve) Add logging
  * @author Arve Nygård
  */
 public class NetCdfManager {
-    private static final Logger LOGGER = Logger.getLogger(NetCdfManager.class.getName());
 
     /**
      * Gets the values of a scalar variables at the given area.
@@ -243,5 +240,26 @@ public class NetCdfManager {
                 "1970-01-01")
         );
         return result;
+    }
+    public LatLonRect getBoundingBox() throws IOException {
+        // @Todo (Arve) This needs to be maintained by the indexer once we are working with
+        // multiple files.
+        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(FeatureServer.netCdfFile);
+
+        final List<Attribute> attrs = gds.getGlobalAttributes();
+
+        return gds.getBoundingBox();
+
+    }
+
+    public double getResolution() throws IOException {
+        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(FeatureServer.netCdfFile);
+        final List<Attribute> globalAttributes = gds.getGlobalAttributes();
+        for (final Attribute attr: globalAttributes) {
+            if (attr.getName().equals("horizontal_resolution")) {
+                return attr.getNumericValue(0).intValue();  // Single value variable.
+            }
+        }
+        throw new InternalServerException("Could not parse resolution of dataset.");
     }
 }
