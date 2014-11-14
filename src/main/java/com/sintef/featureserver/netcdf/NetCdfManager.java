@@ -2,8 +2,10 @@ package com.sintef.featureserver.netcdf;
 
 import com.sintef.featureserver.FeatureServer;
 import com.sintef.featureserver.exception.InternalServerException;
+import com.sintef.featureserver.util.NetCdfDescriptor;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.logging.Logger;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
@@ -51,19 +53,23 @@ public class NetCdfManager {
 			}
 		}
 
-		// Find files
-        final String filename = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
+        // Find files
+        final ArrayList<NetCdfDescriptor> files = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
 
-        // Pick files (if there are multiple files with same data)
-        // and areas that will be read in them
+        // Filter files by date (keep only the most current ones)
+        
+        // Count the resolution of result (Or get)
+        
+        // Filter files by resolution
 
         double[][] result;
         final int[] stride = calculateStride(boundingBox.getRect());
 
-        // There will be loop through all files that should be read
+        // There will be loop through files that should be read
+        final NetCdfDescriptor file = files.get(0);
 
         // Open the dataset, find the variable and its coordinate system
-        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(filename);
+        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(file.getFilename());
         final GridDatatype grid = gds.findGridDatatype(var.toString());
         final GridCoordSystem gcs = grid.getCoordinateSystem();
 
@@ -131,8 +137,8 @@ public class NetCdfManager {
 			}
 		}
 
-		// Find files
-        final String filename = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
+        // Find files
+        final ArrayList<NetCdfDescriptor> files = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
 
         // Pick files (if there are multiple files with same data)
         // and areas that will be read in them
@@ -141,9 +147,10 @@ public class NetCdfManager {
         final int[] stride = calculateStride(boundingBox.getRect());
 
         // There will be loop through all files that should be read
+        final NetCdfDescriptor file = files.get(0);
 
         // Open the dataset, find the variable and its coordinate system
-        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(filename);
+        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(file.getFilename());
         final GridDatatype xGrid = gds.findGridDatatype(var.x());
         final GridDatatype yGrid = gds.findGridDatatype(var.y());
         final GridCoordSystem gcs = xGrid.getCoordinateSystem();
@@ -228,8 +235,14 @@ public class NetCdfManager {
      * @TODO(Arve) Currently returns a single file passed as launch parameter.
      * This should talk to the index instead.
      */
-    private String getCorrectFilePath(final AreaBounds bounds){
-        return FeatureServer.netCdfFile;
+    private ArrayList<NetCdfDescriptor> getCorrectFilePath(final AreaBounds bounds){
+    	ArrayList<NetCdfDescriptor> result = new ArrayList<NetCdfDescriptor>();
+    	result.add(new NetCdfDescriptor(
+    			FeatureServer.netCdfFile,
+    			new Integer[] {640, 515, 42},
+    			"1970-01-01")
+    	);
+        return result;
     }
 
 }
