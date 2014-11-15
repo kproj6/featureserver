@@ -77,11 +77,11 @@ public class DepthResource {
 			@QueryParam("endLon") final Float endLon)
 			throws IOException {
 
-		RsUtil.checkPresenceOfQP(
-				"startLat", startLat,
-				"startLon", startLon,
-				"endLat", endLat,
-				"endLon", endLon);
+		RsUtil.checkNotNull(
+                "startLat", startLat,
+                "startLon", startLon,
+                "endLat", endLat,
+                "endLon", endLon);
 
 		final LatLonPoint topLeft = new LatLonPointImpl(startLat, startLon);
 		final LatLonPoint bottomRight = new LatLonPointImpl(endLat, endLon);

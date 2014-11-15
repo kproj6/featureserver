@@ -9,6 +9,7 @@
  */
 package com.sintef.featureserver.util;
 
+import java.util.Comparator;
 import org.joda.time.DateTime;
 
 /**
@@ -106,7 +107,9 @@ public class NetCdfDescriptor {
 	public DateTime getStartDate() {
 		return startDate;
 	}
-	
-}
 
+	public static Comparator<NetCdfDescriptor> getDateComparator() {
+		return (o1, o2) -> o1.getStartDate().compareTo(o2.getStartDate());
+	}
+}
 
