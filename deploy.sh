@@ -1,8 +1,8 @@
 #!/bin/sh
 # This script will ssh into the server, fetch the latest commits from github, build the program, stop the old process and start a new one.
-
+USER=featureserver
 SERVER_IP=178.62.233.73
-ssh featureserver@$SERVER_IP '
+ssh $USER@$SERVER_IP '
     cd ~/featureserver
     git fetch
     git reset --hard origin/master

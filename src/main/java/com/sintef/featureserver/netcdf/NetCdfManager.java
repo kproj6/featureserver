@@ -34,24 +34,24 @@ public class NetCdfManager {
      * Gets the values of a scalar variables at the given area.
      *
      * @param boundingBox Area we are interested in.
-     * @param var Which feature we are interested in.
+     * @param feature Which feature we are interested in.
      * @return 2D array of values.
      * @throws IOException
      * @throws InvalidRangeException
      */
-	public double[][] getScalarArea(final AreaBounds boundingBox, final Feature var)
-			throws IOException, InvalidRangeException {
+    public double[][] getScalarArea(final AreaBounds boundingBox, final Feature feature)
+            throws IOException, InvalidRangeException {
 
-		if (var.dimension() != 1) {
-			switch (var.dimension()) {
-			case 0:
-				throw new InternalServerException("Used Feature is not directly related to NetCDF.");
-			case 2:
-				throw new InternalServerException("Asked for scalar data from vector variables.");
-			default:
-				throw new InternalServerException("Unknown Feature.");
-			}
-		}
+        if (feature.dimension() != 1) {
+            switch (feature.dimension()) {
+            case 0:
+                throw new InternalServerException("Used Feature is not directly related to NetCDF.");
+            case 2:
+                throw new InternalServerException("Asked for scalar data from vector variables.");
+            default:
+                throw new InternalServerException("Unknown Feature.");
+            }
+        }
 
         // Find files
         final ArrayList<NetCdfDescriptor> files = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
@@ -70,7 +70,7 @@ public class NetCdfManager {
 
         // Open the dataset, find the variable and its coordinate system
         final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(file.getFilename());
-        final GridDatatype grid = gds.findGridDatatype(var.toString());
+        final GridDatatype grid = gds.findGridDatatype(feature.toString());
         final GridCoordSystem gcs = grid.getCoordinateSystem();
 
         // Crop the X and Y dimensions
@@ -118,24 +118,24 @@ public class NetCdfManager {
      * Gets the values of a vector variables at the given area.
      *
      * @param boundingBox Area we are interested in.
-     * @param var Which feature we are interested in.
+     * @param feature Which feature we are interested in.
      * @return 2D array of 2D values. (Every point in the array has form [x axis, y axis])
      * @throws IOException
      * @throws InvalidRangeException
      */
-    public double[][][] getVectorArea(final AreaBounds boundingBox, final Feature var)
-			throws IOException, InvalidRangeException {
+    public double[][][] getVectorArea(final AreaBounds boundingBox, final Feature feature)
+            throws IOException, InvalidRangeException {
 
-		if (var.dimension() != 2) {
-			switch (var.dimension()) {
-			case 0:
-				throw new InternalServerException("Used Feature is not directly related to NetCDF.");
-			case 1:
-				throw new InternalServerException("Asked for vector data from scalar variables.");
-			default:
-				throw new InternalServerException("Unknown Feature.");
-			}
-		}
+        if (feature.dimension() != 2) {
+            switch (feature.dimension()) {
+            case 0:
+                throw new InternalServerException("Used Feature is not directly related to NetCDF.");
+            case 1:
+                throw new InternalServerException("Asked for vector data from scalar variables.");
+            default:
+                throw new InternalServerException("Unknown Feature.");
+            }
+        }
 
         // Find files
         final ArrayList<NetCdfDescriptor> files = getCorrectFilePath(boundingBox); // Hardcoded to launch flag for now.
@@ -151,8 +151,8 @@ public class NetCdfManager {
 
         // Open the dataset, find the variable and its coordinate system
         final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(file.getFilename());
-        final GridDatatype xGrid = gds.findGridDatatype(var.x());
-        final GridDatatype yGrid = gds.findGridDatatype(var.y());
+        final GridDatatype xGrid = gds.findGridDatatype(feature.x());
+        final GridDatatype yGrid = gds.findGridDatatype(feature.y());
         final GridCoordSystem gcs = xGrid.getCoordinateSystem();
 
         // Crop the X and Y dimensions
@@ -198,15 +198,15 @@ public class NetCdfManager {
         final Index yIndex = yData.getIndex();
         for (int i=0; i<shape[0]; i++) {
             for (int j=0; j<shape[1]; j++) {
-				result[i][j][0] = xData.getDouble(xIndex.set(i,j));
-				result[i][j][1] = yData.getDouble(yIndex.set(i,j));
+                result[i][j][0] = xData.getDouble(xIndex.set(i,j));
+                result[i][j][1] = yData.getDouble(yIndex.set(i,j));
             }
         }
 
         return result;
     }
 
-	/**
+    /**
      * Reads the values along the z-axis at a given point for the a given variable.
      * For example: Temperature profile at some location.
      *
@@ -236,13 +236,12 @@ public class NetCdfManager {
      * This should talk to the index instead.
      */
     private ArrayList<NetCdfDescriptor> getCorrectFilePath(final AreaBounds bounds){
-    	ArrayList<NetCdfDescriptor> result = new ArrayList<NetCdfDescriptor>();
-    	result.add(new NetCdfDescriptor(
-    			FeatureServer.netCdfFile,
-    			new Integer[] {640, 515, 42},
-    			"1970-01-01")
-    	);
+        ArrayList<NetCdfDescriptor> result = new ArrayList<NetCdfDescriptor>();
+        result.add(new NetCdfDescriptor(
+                FeatureServer.netCdfFile,
+                new Integer[] {640, 515, 42},
+                "1970-01-01")
+        );
         return result;
     }
-
 }
