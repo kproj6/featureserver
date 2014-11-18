@@ -59,7 +59,7 @@ public class ImageRenderer {
             imageHeight = goalSize;
         } else if (aspectRatio < 1.0) {
             imageWidth = goalSize;
-            imageHeight = (int)(goalSize * aspectRatio);
+            imageHeight = (int)(goalSize / aspectRatio);
         } else {
             imageWidth = (int)(goalSize * aspectRatio);
             imageHeight = goalSize;
