@@ -110,7 +110,7 @@ public class NetCdfManager {
                 result[i][j] = areaData.getDouble(index.set(i,j));
             }
         }
-
+        gds.close();
         return result;
     }
 
@@ -202,7 +202,7 @@ public class NetCdfManager {
                 result[i][j][1] = yData.getDouble(yIndex.set(i,j));
             }
         }
-
+        gds.close();
         return result;
     }
 
