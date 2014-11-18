@@ -79,7 +79,8 @@ public class CurrentMagnitude {
 
         final double[][] areaMagnitudes = RsUtil.getMagnitudesFromVectors(areaData);
 
-        final BufferedImage image = ImageRenderer.render(areaMagnitudes, Feature.CURRENT_MAGNITUDE, true);
+        final BufferedImage image
+                = ImageRenderer.render(areaMagnitudes, Feature.CURRENT_MAGNITUDE, false);
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(image, "png", baos);
         final byte[] imageData = baos.toByteArray();

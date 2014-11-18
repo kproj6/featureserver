@@ -76,7 +76,7 @@ public class SalinityResource {
             throw new BadRequestException("Invalid ranges provided.", e);
         }
 
-        final BufferedImage image = ImageRenderer.render(areaData, Feature.SALINITY, true);
+        final BufferedImage image = ImageRenderer.render(areaData, Feature.SALINITY, false);
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(image, "png", baos);
         final byte[] imageData = baos.toByteArray();

@@ -127,7 +127,7 @@ public class TemperatureResource {
 		}
 
 		// @TODO(Arve) Image size
-		final BufferedImage image = ImageRenderer.render(areaData, Feature.TEMPERATURE, true);
+		final BufferedImage image = ImageRenderer.render(areaData, Feature.TEMPERATURE, false);
 		final ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		ImageIO.write(image, "png", baos);
 		final byte[] imageData = baos.toByteArray();

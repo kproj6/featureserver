@@ -2,7 +2,7 @@
 # Runs the java program as a background service.
 SERVICE_NAME=featureserver
 PATH_TO_JAR=/home/featureserver/featureserver/target/featureserver-0.1-SNAPSHOT-jar-with-dependencies.jar
-ARGS="--netcdf-file=/home/featureserver/files/samples_2013.08.05_large.nc"
+ARGS="--netcdf-file=/home/featureserver/files/projected.nc"
 PID_PATH_NAME=/tmp/featureserver.pid
 case $1 in
     start)

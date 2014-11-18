@@ -97,7 +97,7 @@ public class DepthResource {
 		}
 
 		// @TODO(Arve) Image size
-		final BufferedImage image = ImageRenderer.render(areaData, Feature.DEPTH, true);
+		final BufferedImage image = ImageRenderer.render(areaData, Feature.DEPTH, false);
 		final ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		ImageIO.write(image, "png", baos);
 		final byte[] imageData = baos.toByteArray();
