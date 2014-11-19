@@ -13,10 +13,13 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.joda.time.DateTime;
+import org.json.JSONObject;
 import ucar.ma2.InvalidRangeException;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonPointImpl;
@@ -28,9 +31,7 @@ import ucar.unidata.geoloc.LatLonPointImpl;
 public class SalinityResource {
     private final NetCdfManager netCdfManager;
 
-    public SalinityResource(@Context final NetCdfManager manager) {
-        this.netCdfManager = manager;
-    }
+    public SalinityResource(@Context final NetCdfManager manager) { this.netCdfManager = manager; }
 
     /**
      *
@@ -82,5 +83,38 @@ public class SalinityResource {
         final byte[] imageData = baos.toByteArray();
         return Response.ok(imageData).type("image/png").build();
     }
+
+    @GET
+    @Path("profile")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response salinityProfile(
+            @QueryParam("lat") final Float latitude,
+            @QueryParam("lon") final Float longitude,
+            @QueryParam("time") final String time) throws IOException {
+        RsUtil.validateProfileQueryParams(latitude, longitude, time);
+        final DateTime dt;
+        try {
+            dt = DateTime.parse(time);
+        } catch (final IllegalArgumentException e) {
+            throw new BadRequestException("Time format not recognized", e);
+        }
+        final LatLonPoint location = new LatLonPointImpl(latitude, longitude);
+        final double[] depthProfile;
+        try {
+            depthProfile = netCdfManager.readDepthProfile(location, dt, Feature.SALINITY);
+        } catch (final InvalidRangeException e) {
+            throw new BadRequestException("No data for location");
+        }
+        final JSONObject json = new JSONObject()
+                .put("feature", "salinity")
+                .put("profile", RsUtil.doubleArrayToJson(depthProfile))
+                .put("missingValuePlaceholder", "-1")
+                .put("location", new JSONObject()
+                                .put( "latitude", latitude)
+                                .put("longitude", longitude)
+                                .put("time", time));
+        return Response.ok(json.toString()).build();
+    }
+
 
 }
