@@ -1,0 +1,94 @@
+<Capabilities
+        xmlns="http://www.opengis.net/wmts/1.0"
+        xmlns:ows="http://www.opengis.net/ows/1.1"
+        xmlns:xlink="http://www.w3.org/1999/xlink"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:gml="http://www.opengis.net/gml"
+        xsi:schemaLocation="http://www.opengis.net/wmts/1.0 http://schemas.opengis.net/wmts/1.0/wmtsGetCapabilities_response.xsd"
+        version="1.0.0">
+    <!--  Service Identification  -->
+    <ows:ServiceIdentification>
+        <ows:Title>SINTEF simulation data</ows:Title>
+        <ows:ServiceType>OGC WMTS</ows:ServiceType>
+        <ows:ServiceTypeVersion>1.0.0</ows:ServiceTypeVersion>
+    </ows:ServiceIdentification>
+    <!--  Operations Metadata  -->
+    <ows:OperationsMetadata>
+        <ows:Operation name="GetCapabilities">
+            <ows:DCP>
+                <ows:HTTP>
+                    <ows:Get xlink:href="$WmtsBaseUrl/1.0.0/WMTSCapabilities.xml">
+                        <ows:Constraint name="GetEncoding">
+                            <ows:AllowedValues>
+                                <ows:Value>RESTful</ows:Value>
+                            </ows:AllowedValues>
+                        </ows:Constraint>
+                    </ows:Get>
+                </ows:HTTP>
+            </ows:DCP>
+        </ows:Operation>
+        <ows:Operation name="GetTile">
+            <ows:DCP>
+                <ows:HTTP>
+                    <ows:Get xlink:href="$WmtsBaseUrl/tile/1.0.0/">
+                        <ows:Constraint name="GetEncoding">
+                            <ows:AllowedValues>
+                                <ows:Value>RESTful</ows:Value>
+                            </ows:AllowedValues>
+                        </ows:Constraint>
+                    </ows:Get>
+                </ows:HTTP>
+            </ows:DCP>
+        </ows:Operation>
+    </ows:OperationsMetadata>
+    <Contents>
+        <!-- Layer -->
+        <Layer>
+            <ows:Title>WorldTimeZones</ows:Title>
+            <ows:Identifier>WorldTimeZones</ows:Identifier>
+            <ows:BoundingBox crs="urn:ogc:def:crs:EPSG::3857">
+                <ows:LowerCorner>$lowerRightPoint.getLatitude() $lowerRightPoint.getLongitude()</ows:LowerCorner>
+                <ows:UpperCorner>$upperLeftPoint.getLatitude() $upperLeftPoint.getLongitude()</ows:UpperCorner>
+            </ows:BoundingBox>
+            <ows:WGS84BoundingBox crs="urn:ogc:def:crs:OGC:2:84">
+                <ows:LowerCorner>-179.99999550841463 -88.99999992161119</ows:LowerCorner>
+                <ows:UpperCorner>179.99999550841463 88.99999992161118</ows:UpperCorner>
+            </ows:WGS84BoundingBox>
+            <Style isDefault="true">
+                <ows:Title>Default Style</ows:Title> <ows:Identifier>default</ows:Identifier>
+            </Style>
+            <Format>image/png</Format>
+            <TileMatrixSetLink>
+                <TileMatrixSet>default028mm</TileMatrixSet>
+            </TileMatrixSetLink>
+            <TileMatrixSetLink>
+                <!-- Only show this TileMatrixSet if the tiling scheme is compliant to Google Maps (and that happens with tile width = 256 px) -->
+                <TileMatrixSet>GoogleMapsCompatible</TileMatrixSet>
+            </TileMatrixSetLink>
+            <ResourceURL format="image/png"
+                         resourceType="tile"
+                         template="$wmtsBaseUrl/tile/1.0.0/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png" />
+        </Layer>
+        <!-- TileMatrixSet -->
+        <TileMatrixSet>
+            <ows:Title>$tileMatrixSet.getId()</ows:Title>
+            <ows:Abstract>$tileMatrixSet.getAbstract</ows:Abstract>
+            <ows:Identifier>$tileMatrixSet.getId()</ows:Identifier>
+            <ows:SupportedCRS>$tileMatrixSet.getCrs()</ows:SupportedCRS>
+            <WellKnownScaleSet>$tileMatrixSet.getScaleSet()</WellKnownScaleSet>
+            #foreach( $tileMatrix in $tileMatrixSet.getTileMatrices() )
+            <TileMatrix>
+                <ows:Identifier>$tileMatrix.getIdentifier()</ows:Identifier>
+                <ScaleDenominator>$tileMatrix.getScaleDenominator()</ScaleDenominator>
+                <TopLeftCorner>$tileMatrix.getTopLeftCorner().getLatitude()
+                    $tileMatrix.getTopLeftCorner().getLongitude()</TopLeftCorner>
+                <TileWidth>$tileMatrix.getTileWidth()</TileWidth>
+                <TileHeight>$tileMatrix.getTileHeight()</TileHeight>
+                <MatrixWidth>$tileMatrix.getMatrixWidth()</MatrixWidth>
+                <MatrixHeight>$tileMatrix.getMatrixHeight()</MatrixHeight>
+            </TileMatrix>
+            #end
+        </TileMatrixSet>
+    </Contents>
+    <ServiceMetadataURL xlink:href="$WmtsBaseUrl/1.0.0/WMTSCapabilities.xml" />
+</Capabilities>

@@ -7,11 +7,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.logging.Logger;
 import org.joda.time.DateTime;
 import ucar.ma2.Array;
 import ucar.ma2.Index;
 import ucar.ma2.InvalidRangeException;
+import ucar.nc2.Attribute;
 import ucar.nc2.dataset.CoordinateAxis1D;
 import ucar.nc2.dataset.CoordinateAxis1DTime;
 import ucar.nc2.dt.GridCoordSystem;
@@ -26,7 +26,6 @@ import ucar.unidata.geoloc.LatLonRect;
  * @author Arve Nygård
  */
 public class NetCdfManager {
-    private static final Logger LOGGER = Logger.getLogger(NetCdfManager.class.getName());
 
     /**
      * Gets the values of a scalar variables at the given area.
@@ -278,7 +277,7 @@ public class NetCdfManager {
     }
 
     /**
-     * Get the file that contains the given point. If multiple files match, use the newest one.
+     * Get files that contains the given point.
      * @param point location we are interested in
      * @return NetCdfDescriptor describing the file that contains this point.
      */
@@ -291,5 +290,27 @@ public class NetCdfManager {
                 "1970-01-01")
         );
         return result;
+    }
+
+    public LatLonRect getBoundingBox() throws IOException {
+        // @Todo (Arve) This needs to be maintained by the indexer once we are working with
+        // multiple files.
+        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(FeatureServer.netCdfFile);
+
+        final List<Attribute> attrs = gds.getGlobalAttributes();
+
+        return gds.getBoundingBox();
+
+    }
+
+    public double getResolution() throws IOException {
+        final GridDataset gds = ucar.nc2.dt.grid.GridDataset.open(FeatureServer.netCdfFile);
+        final List<Attribute> globalAttributes = gds.getGlobalAttributes();
+        for (final Attribute attr: globalAttributes) {
+            if (attr.getName().equals("horizontal_resolution")) {
+                return attr.getNumericValue(0).intValue();  // Single value variable.
+            }
+        }
+        throw new InternalServerException("Could not parse resolution of dataset.");
     }
 }
